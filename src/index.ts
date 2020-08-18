@@ -69,17 +69,20 @@ import { registerGeometryLabel } from './core';
 import GeometryLabel from './geometry/label/base';
 import IntervalLabel from './geometry/label/interval';
 import PieLabel from './geometry/label/pie';
+import PieSpiderLabel from './geometry/label/pie/spider';
 import PolarLabel from './geometry/label/polar';
 
 registerGeometryLabel('base', GeometryLabel);
 registerGeometryLabel('interval', IntervalLabel);
 registerGeometryLabel('pie', PieLabel);
+registerGeometryLabel('pie-spider', PieSpiderLabel);
 registerGeometryLabel('polar', PolarLabel);
 
 // 注册 Geometry label 内置的布局函数
 import { registerGeometryLabelLayout } from './core';
 import { distribute } from './geometry/label/layout/pie/distribute';
 import { pieOuterLabelLayout } from './geometry/label/layout/pie/outer';
+import { pieSpiderLabelLayout } from './geometry/label/layout/pie/spider';
 import { limitInCanvas } from './geometry/label/layout/limit-in-canvas';
 import { limitInShape } from './geometry/label/layout/limit-in-shape';
 import { fixedOverlap, overlap } from './geometry/label/layout/overlap';
@@ -92,6 +95,7 @@ registerGeometryLabelLayout('hide-overlap', hideOverlap);
 registerGeometryLabelLayout('limit-in-shape', limitInShape);
 registerGeometryLabelLayout('limit-in-canvas', limitInCanvas);
 registerGeometryLabelLayout('pie-outer', pieOuterLabelLayout);
+registerGeometryLabelLayout('pie-spider', pieSpiderLabelLayout);
 
 // 注册需要的动画执行函数
 import { fadeIn, fadeOut } from './animate/animation/fade';
