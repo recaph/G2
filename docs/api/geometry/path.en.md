@@ -3,11 +3,11 @@ title: Path
 order: 2
 ---
 
-Path 几何标记。<br />用于绘制路径图等。<br />
+Path geometry mark. <br />Used to draw path diagrams, etc. <br />
 
 <a name="47c96d01"></a>
 
-## 继承关系
+## Inheritance
 
 <br />↳ [Geometry](geometry)<br />
 <br />↳ **Path**<br />
@@ -16,7 +16,7 @@ Path 几何标记。<br />用于绘制路径图等。<br />
 
 <a name="d3474432"></a>
 
-## 创建方式
+## Method for creation
 
 ```typescript
 chart.path();
@@ -25,13 +25,13 @@ view.path();
 
 <a name="3d0a2df9"></a>
 
-### 参数
+### Parameters
 
 <br />• **connectNulls**? : _boolean_<br />
-<br />是否连接空值<br />
+<br />Whether connects null values or not<br />
 <br />• **sortable**? : _boolean_<br />
-<br />是否对数据进行排序<br />
+<br />Whether sort the data<br />
 <br />• **theme**? : _object_<br />
-<br />主题配置<br />
+<br />Theme configuration<br />
 <br />• **visible**? : _boolean_<br />
-<br />是否可见
+<br />Whether is visible

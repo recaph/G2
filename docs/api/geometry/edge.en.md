@@ -3,24 +3,24 @@ title: Edge
 order: 7
 ---
 
-Edge 几何标记，用于绘制关系图中的**边**图形，如：<br />
+Edge geometry mark. <br />Used to draw **edge** graphics in the relationship diagram , such as: <br />
 
-1. 流程图
-1. 树
-1. 弧长连接图
-1. 和弦图
-1. 桑基图
+1. Flow Chart.
+2. Tree
+3. Arc-length Connection Diagram.
+4. Chord Chart.
+5. Sankey Diagram.
 
 <a name="b821e2f0"></a>
 
-## 继承关系
+## Inheritance
 
 <br />↳ [Geometry](./geometry)<br />
 <br />↳ **Edge**<br />
 
 <a name="d3474432"></a>
 
-## 创建方式
+## Method for creation
 
 ```typescript
 chart.edge();

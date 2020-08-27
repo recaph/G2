@@ -3,7 +3,7 @@ title: Interval
 order: 1
 ---
 
-Interval 几何标记。<br />用于绘制柱状图、饼图、条形图、玫瑰图等。<br />
+Interval geometry mark. <br />Used to draw bar graphs, pie graphs, bar graphs, rose graphs, etc.<br />
 
 <a name="b821e2f0"></a>
 
