@@ -1,6 +1,7 @@
 import { each } from '@antv/util';
 import { DIRECTION } from '../constant';
 import { Padding, Point, Region } from '../interface';
+import { BBox as BBoxObject } from '../dependents';
 
 /**
  * 用于包围盒计算。
@@ -17,6 +18,10 @@ export class BBox {
 
   public static fromRange(minX: number, minY: number, maxX: number, maxY: number) {
     return new BBox(minX, minY, maxX - minX, maxY - minY);
+  }
+
+  public static fromObject(bbox: BBoxObject) {
+    return new BBox(bbox.minX, bbox.minY, bbox.width, bbox.height);
   }
 
   constructor(x: number = 0, y: number = 0, width: number = 0, height: number = 0) {
@@ -92,6 +97,14 @@ export class BBox {
    */
   public isEqual(bbox: BBox): boolean {
     return this.x === bbox.x && this.y === bbox.y && this.width === bbox.width && this.height === bbox.height;
+  }
+
+  /**
+   * 是否包含了另一个包围盒
+   * @param child
+   */
+  public contains(child: BBox): boolean {
+    return child.minX >= this.minX && child.maxX <= this.maxX && child.minY >= this.minY && child.maxY <= this.maxY;
   }
 
   /**
@@ -180,6 +193,16 @@ export class BBox {
   }
 
   /**
+   * 扩张形成新的
+   * @param gap
+   */
+  public expand(gap: Padding): BBox {
+    const [top, right, bottom, left] = gap;
+
+    return new BBox(this.x - left, this.y - top, this.width + left + right, this.height + top + bottom);
+  }
+
+  /**
    * get the gap of two bbox, if not exceed, then 0
    * @param bbox
    * @returns [top, right, bottom, left]
@@ -191,6 +214,15 @@ export class BBox {
       Math.max(this.maxY - bbox.maxY, 0),
       Math.max(-this.minX + bbox.minX, 0),
     ];
+  }
+
+  /**
+   * 是否碰撞
+   * @param bbox
+   */
+  public collide(bbox: BBox): boolean {
+    return this.minX < bbox.maxX && this.maxX > bbox.minX &&
+      this.minY < bbox.maxY && this.maxY > bbox.minY;
   }
 
   /**

@@ -5,7 +5,6 @@ import Element from '../geometry/element';
 import { LooseObject, StyleSheet } from '../interface';
 import { getAngle } from '../util/graphics';
 
-
 /**
  * 根据主题样式表生成主题结构
  * @param styleSheet 主题样式表
@@ -227,10 +226,10 @@ export function createThemeByStylesheet(styleSheet: StyleSheet): LooseObject {
     },
     flipPage: true,
     animate: false,
-    maxItemWidth: 0.2,
+    maxItemWidth: 200,
     itemSpacing: styleSheet.legendItemSpacing,
     itemMarginBottom: styleSheet.legendItemMarginBottom,
-    spacing: styleSheet.legendSpacing, // 图例与图表绘图区域的距离
+    padding: styleSheet.legendPadding, // 图例组件自己的外边距
   };
 
   return {
@@ -1034,6 +1033,7 @@ export function createThemeByStylesheet(styleSheet: StyleSheet): LooseObject {
             },
           },
           slidable: true,
+          padding: legendStyles.padding,
         },
       },
       tooltip: {
@@ -1224,6 +1224,16 @@ export function createThemeByStylesheet(styleSheet: StyleSheet): LooseObject {
           animate: true,
         },
       },
+      slider: {
+        common: {
+          padding: [8, 8, 8, 8],
+        },
+      },
+      scrollbar: {
+        common: {
+          padding: [8, 8, 8, 8],
+        },
+      },
     },
     labels: {
       offset: 12,
@@ -1234,6 +1244,8 @@ export function createThemeByStylesheet(styleSheet: StyleSheet): LooseObject {
         stroke: styleSheet.labelBorderColor,
         lineWidth: styleSheet.labelBorder,
       },
+      fillColorDark: styleSheet.labelFillColorDark,
+      fillColorLight: styleSheet.labelFillColorLight,
       autoRotate: true,
     },
     innerLabels: {

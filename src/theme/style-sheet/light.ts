@@ -162,8 +162,8 @@ export const antvLight = {
   legendItemSpacing: 24,
   /** 图例项垂直方向的间隔 */
   legendItemMarginBottom: 12,
-  /** 图例与图表绘图区域的便宜距离  */
-  legendSpacing: 16,
+  /** 图例与图表绘图区域的偏移距离  */
+  legendPadding: [8, 8, 8, 8],
 
   /** 连续图例滑块填充色 */
   sliderRailFillColor: BLACK_COLORS[15],
@@ -262,6 +262,8 @@ export const antvLight = {
   // -------------------- Geometry labels --------------------
   /** Geometry label 文本颜色 */
   labelFillColor: BLACK_COLORS[65],
+  labelFillColorDark: '#2c3542',
+  labelFillColorLight: '#ffffff',
   /** Geometry label 文本字体大小 */
   labelFontSize: 12,
   /** Geometry label 文本行高 */

@@ -25,6 +25,7 @@ describe('View', () => {
   const foregroundGroup = canvas.addGroup();
 
   const view = new View({
+    id: 'onlyView',
     parent: null,
     canvas,
     foregroundGroup,
@@ -43,6 +44,7 @@ describe('View', () => {
     // @ts-ignore
     expect(view.foregroundGroup).toBeInstanceOf(getEngine(renderer).Group);
     expect(view.visible).toBeFalse();
+    expect(view.id).toBe('onlyView');
   });
 
   it('region', () => {
@@ -293,14 +295,17 @@ describe('View', () => {
 
   it('showTooltip', () => {
     let result;
+    let type;
     view.on('tooltip:show', (ev) => {
-      result = ev;
+      result = ev.data;
+      type = ev.type;
     });
     const position = view.getXY({ city: '杭州', sale: 40, category: '鼠标' });
     view.showTooltip(position);
 
     expect(result).toBeDefined();
     expect(result.items[0].data).toEqual({ city: '杭州', sale: 40, category: '鼠标' });
+    expect(type).toBe('tooltip:show');
   });
 
   it('tooltip:change', () => {

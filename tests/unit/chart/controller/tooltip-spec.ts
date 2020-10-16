@@ -37,7 +37,7 @@ describe('Tooltip', () => {
   it('showTooltip', () => {
     let items;
     chart.on('tooltip:show', (e) => {
-      items = e.items;
+      items = e.data.items;
     });
 
     const point = chart.getXY({ name: 'London', 月份: 'Mar.', 月均降雨量: 39.3 });
@@ -59,7 +59,7 @@ describe('Tooltip', () => {
     expect(markerGroup.getChildren().length).toBe(2);
 
     const foregroundGroup = chart.foregroundGroup;
-    expect(foregroundGroup.getChildren().length).toBe(5);
+    expect(foregroundGroup.getChildren().length).toBe(6);
 
     // 延迟生成
     const tooltipDom = container.getElementsByClassName('g2-tooltip')[0];
@@ -122,7 +122,7 @@ describe('Tooltip', () => {
     chart.clear();
 
     const foregroundGroup = chart.foregroundGroup;
-    expect(foregroundGroup.getChildren().length).toBe(5);
+    expect(foregroundGroup.getChildren().length).toBe(6);
 
     const tooltipDom = container.getElementsByClassName('g2-tooltip');
     expect(tooltipDom.length).toBe(1);

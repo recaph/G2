@@ -1,9 +1,7 @@
 import { deepMix, each, find, get, head, isBoolean, last } from '@antv/util';
-
 import { COMPONENT_MAX_VIEW_PERCENTAGE, COMPONENT_TYPE, DIRECTION, LAYER } from '../../constant';
 import { Attribute, CategoryLegend, ContinuousLegend, GroupComponent, IGroup, Scale, Tick } from '../../dependents';
-import { ComponentOption, LegendCfg, LegendOption, LooseObject } from '../../interface';
-
+import { ComponentOption, LegendCfg, LegendOption, LooseObject, AllLegendsOptions, Padding } from '../../interface';
 import { DEFAULT_ANIMATE_CFG } from '../../animate';
 import Geometry from '../../geometry/base';
 import { BBox } from '../../util/bbox';
@@ -14,8 +12,6 @@ import { getName } from '../../util/scale';
 import View from '../view';
 import { Controller } from './base';
 
-type Option = Record<string, LegendOption> | boolean;
-
 type DoEach = (geometry: Geometry, attr: Attribute, scale: Scale) => void;
 
 /**
@@ -24,7 +20,7 @@ type DoEach = (geometry: Geometry, attr: Attribute, scale: Scale) => void;
  * @param field
  * @returns the option of one legend field
  */
-function getLegendOption(legends: Record<string, LegendOption> | boolean, field: string) {
+function getLegendOption(legends: AllLegendsOptions, field: string) {
   if (isBoolean(legends)) {
     return legends === false ? false : {};
   }
@@ -40,7 +36,7 @@ function getDirection(legendOption: any): DIRECTION {
  * @ignore
  * legend Controller
  */
-export default class Legend extends Controller<Option> {
+export default class Legend extends Controller<AllLegendsOptions> {
   /** the draw group of axis */
   private container: IGroup;
   /** 用于多个 legend 布局的 bbox */
@@ -62,39 +58,8 @@ export default class Legend extends Controller<Option> {
    * render the legend component by legend options
    */
   public render() {
-    this.option = this.view.getOptions().legends;
-
-    const doEachLegend = (geometry: Geometry, attr: Attribute, scale: Scale) => {
-      const legend = this.createFieldLegend(geometry, attr, scale);
-
-      if (legend) {
-        (legend.component as GroupComponent).init();
-        this.components.push(legend);
-      }
-    };
-
-    // 全局自定义图例
-    if (get(this.option, 'custom')) {
-      const component = this.createCustomLegend(undefined, undefined, undefined, this.option as LegendCfg);
-      if (component) {
-        component.init();
-
-        const layer = LAYER.FORE;
-        const direction = getDirection(this.option);
-
-        this.components.push({
-          id: 'global-custom',
-          component,
-          layer,
-          direction,
-          type: COMPONENT_TYPE.LEGEND,
-          extra: undefined,
-        });
-      }
-    } else {
-      // 遍历处理每一个创建逻辑
-      this.loopLegends(doEachLegend);
-    }
+    // 和 update 逻辑保持一致
+    this.update();
   }
 
   /**
@@ -118,8 +83,10 @@ export default class Legend extends Controller<Option> {
         maxHeight: Math.min(maxSize.maxHeight, maxHeight || 0),
       });
 
+      const padding = component.get('padding') as Padding;
+
       const bboxObject = component.getLayoutBBox(); // 这里只需要他的 width、height 信息做位置调整
-      const bbox = new BBox(bboxObject.x, bboxObject.y, bboxObject.width, bboxObject.height);
+      const bbox = new BBox(bboxObject.x, bboxObject.y, bboxObject.width, bboxObject.height).expand(padding);
 
       const [x1, y1] = directionToPosition(this.view.viewBBox, bbox, direction);
       const [x2, y2] = directionToPosition(this.layoutBBox, bbox, direction);
@@ -137,7 +104,7 @@ export default class Legend extends Controller<Option> {
       }
 
       // 更新位置
-      component.setLocation({ x, y });
+      component.setLocation({ x: x + padding[3], y: y + padding[0] });
 
       this.layoutBBox = this.layoutBBox.cut(bbox, direction);
     });

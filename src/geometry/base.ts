@@ -47,6 +47,7 @@ import {
   StyleCallback,
   StyleOption,
   TooltipCallback,
+  CustomOption,
 } from '../interface';
 import { uniq } from '../util/helper';
 import Element from './element';
@@ -188,6 +189,8 @@ export default class Geometry extends Base {
   protected adjustOption: AdjustOption[];
   /** style 配置项 */
   protected styleOption: StyleOption;
+  /** custom 自定义的配置项 */
+  protected customOption: CustomOption;
   /** 每个 Geometry 对应的 Shape 工厂实例，用于创建各个 Shape */
   protected shapeFactory: ShapeFactory;
   /** 存储上一次渲染时的 element 映射表，用于更新逻辑 */
@@ -777,6 +780,32 @@ export default class Geometry extends Base {
   }
 
   /**
+   * 用于向 shape 中传入自定义的数据。目前可能仅仅可能用于在自定义 shape 的时候，像自定义 shape 中传入自定义的数据，方便实现自定义 shape 的配置能力。
+   *
+   * @example
+   * ```ts
+   * chart.interval().customInfo({ yourData: 'hello, g2!' });
+   * ```
+   *
+   * 然后在自定义 shape 的时候，可以拿到这个信息。
+   *
+   * ```ts
+   * registerShape('interval', 'your-shape', {
+   *   draw(shapeInfo, container) {
+   *     const { customInfo } = shapeInfo;
+   *     console.log(customInfo); // will log { yourData: 'hello, g2!' }.
+   *   }
+   * });
+   * ```
+   *
+   * @param cfg
+   */
+  public customInfo(cfg: any) {
+    this.customOption = cfg;
+    return this;
+  }
+
+  /**
    * 初始化 Geomtry 实例：
    * 创建 [[Attribute]] and [[Scale]] 实例，进行数据处理，包括分组、数值化以及数据调整。
    */
@@ -1327,6 +1356,7 @@ export default class Geometry extends Base {
       color: mappingDatum.color,
       size: mappingDatum.size,
       isInCircle: this.coordinate.isPolar,
+      customInfo: this.customOption,
     };
 
     let shapeName = mappingDatum.shape;
@@ -1337,6 +1367,12 @@ export default class Geometry extends Base {
     // 获取默认样式
     const theme = this.theme.geometries[this.shapeType];
     cfg.defaultStyle = get(theme, [shapeName, 'default'], {}).style;
+    if (!cfg.defaultStyle && this.getShapeFactory()) {
+      cfg.defaultStyle = this.getShapeFactory().getDefaultStyle(theme);
+      if (!cfg.color) {
+        cfg.color = get(cfg.defaultStyle, ['fill']);
+      }
+    }
 
     const styleOption = this.styleOption;
     if (styleOption) {
@@ -1395,13 +1431,13 @@ export default class Geometry extends Base {
    */
   protected getLabelType(): string {
     const { labelOption, coordinate, type } = this;
-    const coordinateType = coordinate.type;
+    const { type: coordinateType, isTransposed } = coordinate;
     let labelType = get(labelOption, ['cfg', 'type']);
     if (!labelType) {
       // 用户未定义，则进行默认的逻辑
       if (coordinateType === 'polar') {
-        // 极坐标下使用通用的极坐标文本
-        labelType = 'polar';
+        // 极坐标下使用通用的极坐标文本，转置则使用饼图
+        labelType = isTransposed ? 'pie' : 'polar';
       } else if (coordinateType === 'theta') {
         // theta 坐标系下使用饼图文本
         labelType = 'pie';

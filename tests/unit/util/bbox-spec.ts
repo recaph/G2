@@ -72,4 +72,22 @@ describe('util/ bbox', () => {
     expect(bbox.isPointIn({ x: 50, y: 50 })).toBe(true);
     expect(bbox.isPointIn({ x: 120, y: 120 })).toBe(false);
   });
+
+  it('expand', () => {
+    let bbox = new BBox(10, 10, 100, 100);
+    bbox = bbox.expand([10, 10, 10, 10]);
+
+    expect(bbox.x).toBe(0);
+    expect(bbox.y).toBe(0);
+    expect(bbox.width).toBe(120);
+    expect(bbox.height).toBe(120);
+  });
+
+  it('collide', () => {
+    expect(BBox.fromRange(100, 100, 200 ,200).collide(BBox.fromRange(0, 0, 100, 100))).toBe(false);
+
+    expect(BBox.fromRange(100, 100, 200 ,200).collide(BBox.fromRange(150, 150, 170, 170))).toBe(true);
+    expect(BBox.fromRange(100, 100, 200 ,200).collide(BBox.fromRange(0, 0, 110, 110))).toBe(true);
+    expect(BBox.fromRange(100, 100, 200 ,200).collide(BBox.fromRange(190, 190, 300, 300))).toBe(true);
+  });
 });

@@ -80,10 +80,14 @@ registerGeometryLabel('polar', PolarLabel);
 import { registerGeometryLabelLayout } from './core';
 import { distribute } from './geometry/label/layout/pie/distribute';
 import { pieOuterLabelLayout } from './geometry/label/layout/pie/outer';
+import { pieSpiderLabelLayout } from './geometry/label/layout/pie/spider';
 import { limitInCanvas } from './geometry/label/layout/limit-in-canvas';
 import { limitInShape } from './geometry/label/layout/limit-in-shape';
 import { fixedOverlap, overlap } from './geometry/label/layout/overlap';
 import { hideOverlap } from './geometry/label/layout/hide-overlap';
+import { adjustColor } from './geometry/label/layout/adjust-color';
+import { intervalAdjustPosition } from './geometry/label/layout/interval/adjust-position';
+import { pointAdjustPosition } from './geometry/label/layout/point/adjust-position';
 
 registerGeometryLabelLayout('overlap', overlap);
 registerGeometryLabelLayout('distribute', distribute);
@@ -92,6 +96,10 @@ registerGeometryLabelLayout('hide-overlap', hideOverlap);
 registerGeometryLabelLayout('limit-in-shape', limitInShape);
 registerGeometryLabelLayout('limit-in-canvas', limitInCanvas);
 registerGeometryLabelLayout('pie-outer', pieOuterLabelLayout);
+registerGeometryLabelLayout('adjust-color', adjustColor);
+registerGeometryLabelLayout('interval-adjust-position', intervalAdjustPosition);
+registerGeometryLabelLayout('point-adjust-position', pointAdjustPosition);
+registerGeometryLabelLayout('pie-spider', pieSpiderLabelLayout);
 
 // 注册需要的动画执行函数
 import { fadeIn, fadeOut } from './animate/animation/fade';
@@ -142,6 +150,7 @@ import Axis from './chart/controller/axis';
 import Legend from './chart/controller/legend';
 import Slider from './chart/controller/slider';
 import Tooltip from './chart/controller/tooltip';
+import Scrollbar from './chart/controller/scrollbar';
 
 // register build-in components
 registerComponentController('axis', Axis);
@@ -149,6 +158,7 @@ registerComponentController('legend', Legend);
 registerComponentController('tooltip', Tooltip);
 registerComponentController('annotation', Annotation);
 registerComponentController('slider', Slider);
+registerComponentController('scrollbar', Scrollbar);
 
 // 注册 Interaction Action
 import { registerAction } from './core';
@@ -316,7 +326,7 @@ registerInteraction('ellipsis-text', {
   ],
 });
 
-// 移动到 elment 上 active
+// 移动到 element 上 active
 registerInteraction('element-active', {
   start: [{ trigger: 'element:mouseenter', action: 'element-active:active' }],
   end: [{ trigger: 'element:mouseleave', action: 'element-active:reset' }],

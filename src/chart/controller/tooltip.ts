@@ -1,4 +1,4 @@
-import { deepMix, find, flatten, get, isArray, isEqual, isFunction, isUndefined, mix } from '@antv/util';
+import { deepMix, find, flatten, get, isArray, isEqual, isFunction, mix, isString, clone, isBoolean} from '@antv/util';
 import { Crosshair, HtmlTooltip, IGroup } from '../../dependents';
 import Geometry from '../../geometry/base';
 import { Point, TooltipOption } from '../../interface';
@@ -7,6 +7,7 @@ import { polarToCartesian } from '../../util/graphics';
 import { findDataByPoint, getTooltipItems } from '../../util/tooltip';
 import { BBox } from '../../util/bbox';
 import { Controller } from './base';
+import Event from '../event';
 
 // Filter duplicates, use `name`, `color`, `value` and `title` property values as condition
 function uniq(items) {
@@ -78,11 +79,11 @@ export default class Tooltip extends Controller<TooltipOption> {
       y: items[0].y,
     }; // 数据点位置
 
-    view.emit('tooltip:show', {
+    view.emit('tooltip:show', Event.fromData(view, 'tooltip:show', {
       items,
       title,
       ...point,
-    });
+    }));
 
     const cfg = this.getTooltipCfg();
     const { follow, showMarkers, showCrosshairs, showContent, marker } = cfg;
@@ -90,11 +91,11 @@ export default class Tooltip extends Controller<TooltipOption> {
     const lastTitle = this.title;
     if (!isEqual(lastTitle, title) || !isEqual(lastItems, items)) {
       // 内容发生变化了更新 tooltip
-      view.emit('tooltip:change', {
+      view.emit('tooltip:change', Event.fromData(view, 'tooltip:change', {
         items,
         title,
         ...point,
-      });
+      }));
 
       if (showContent) {
         // 展示 tooltip 内容框才渲染 tooltip
@@ -169,7 +170,8 @@ export default class Tooltip extends Controller<TooltipOption> {
       tooltip.hide();
     }
 
-    this.view.emit('tooltip:hide', {});
+    this.view.emit('tooltip:hide', Event.fromData(this.view, 'tooltip:hide', {}));
+
     this.point = null;
   }
 
@@ -362,12 +364,29 @@ export default class Tooltip extends Controller<TooltipOption> {
   protected getTooltipCfg() {
     const view = this.view;
     const option = view.getOptions().tooltip;
+    const processOption = this.processCustomContent(option);
     const theme = view.getTheme();
     const defaultCfg = get(theme, ['components', 'tooltip'], {});
-    const enterable = get(option, 'enterable', defaultCfg.enterable);
-    return deepMix({}, defaultCfg, option, {
+    const enterable = get(processOption, 'enterable', defaultCfg.enterable);
+    return deepMix({}, defaultCfg, processOption, {
       capture: enterable || this.isLocked ? true : false,
     });
+  }
+
+  // process customContent
+  protected processCustomContent(option: TooltipOption) {
+    if(isBoolean(option) || !get(option, 'customContent')){
+      return option;
+    }
+    const currentCustomContent = option.customContent;
+    const customContent = (title: string, items: any[]) => {
+      const content = currentCustomContent(title, items) || '';
+      return isString(content) ? '<div class="g2-tooltip">' + content + '</div>' : content ; 
+    }
+    return {
+      ...option,
+      customContent,
+    };
   }
 
   private getTitle(items) {
