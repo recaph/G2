@@ -1,13 +1,14 @@
-import { deepMix, each, get, isArray } from '@antv/util';
+import { deepMix, each, get, isArray, isNull } from '@antv/util';
 import { BBox, Coordinate, IGroup, IShape } from '../dependents';
 import { LabelItem } from '../geometry/label/interface';
 import { AnimateOption, GeometryLabelLayoutCfg } from '../interface';
 import { doAnimate } from '../animate';
 import { getGeometryLabelLayout } from '../geometry/label';
 import { getlLabelBackgroundInfo } from '../geometry/label/util';
-import { getReplaceAttrs, polarToCartesian } from '../util/graphics';
+import { polarToCartesian } from '../util/graphics';
 import { rotate, translate } from '../util/transform';
 import { FIELD_ORIGIN } from '../constant';
+import { updateLabel } from './update-label';
 
 /**
  * Labels 实例创建时，传入构造函数的参数定义
@@ -81,31 +82,14 @@ export default class Labels {
           const data = shape.get('data');
           const origin = shape.get('origin');
           const coordinate = shape.get('coordinate');
-          const currentShape = lastShapesMap[id]; // 已经在渲染树上的 shape
           const currentAnimateCfg = shape.get('animateCfg');
-          currentShape.set('data', data);
-          currentShape.set('origin', origin);
-          currentShape.set('animateCfg', currentAnimateCfg);
-          currentShape.set('coordinate', coordinate);
 
-          const updateAnimateCfg = get(currentAnimateCfg, 'update');
-          const currentChildren = currentShape.getChildren();
-          shape.getChildren().map((child, index) => {
-            const currentChild = currentChildren[index] as IShape;
-            currentChild.set('data', data);
-            currentChild.set('origin', origin);
-            currentChild.set('animateCfg', currentAnimateCfg);
-            currentChild.set('coordinate', coordinate);
-
-            const newAttrs = getReplaceAttrs(currentChild, child);
-            if (updateAnimateCfg) {
-              doAnimate(currentChild, updateAnimateCfg, {
-                toAttrs: newAttrs,
-                coordinate,
-              });
-            } else {
-              currentChild.attr(newAttrs);
-            }
+          const currentShape = lastShapesMap[id]; // 已经在渲染树上的 shape
+          updateLabel(currentShape, shapesMap[id], {
+            data,
+            origin,
+            animateCfg: currentAnimateCfg,
+            coordinate,
           });
 
           this.shapesMap[id] = currentShape; // 保存引用
@@ -144,7 +128,7 @@ export default class Labels {
     offscreenGroup.destroy();
   }
 
-  /** 清楚当前 labels */
+  /** 清除当前 labels */
   public clear() {
     this.container.clear();
     this.shapesMap = {};
@@ -159,9 +143,10 @@ export default class Labels {
   }
 
   private renderLabel(cfg: LabelItem, container: IGroup) {
-    const { id, data, mappingData, coordinate, animate, content } = cfg;
+    const { id, elementId, data, mappingData, coordinate, animate, content } = cfg;
     const shapeAppendCfg = {
       id,
+      elementId,
       data,
       origin: {
         ...mappingData,
@@ -195,6 +180,7 @@ export default class Labels {
       labelShape = content;
       labelGroup.add(content);
     } else {
+      const fill = get(cfg, ['style', 'fill']);
       labelShape = labelGroup.addShape('text', {
         attrs: {
           x: cfg.x,
@@ -203,6 +189,7 @@ export default class Labels {
           textBaseline: get(cfg, 'textBaseline', 'middle'),
           text: cfg.content,
           ...cfg.style,
+          fill: isNull(fill) ? cfg.color : fill,
         },
         ...shapeAppendCfg,
       });
@@ -225,7 +212,7 @@ export default class Labels {
           const geometryShapes = [];
           each(this.shapesMap, (labelShape, id) => {
             labelShapes.push(labelShape);
-            geometryShapes.push(shapes[id]);
+            geometryShapes.push(shapes[labelShape.get('elementId')]);
           });
 
           layoutFn(items, labelShapes, geometryShapes, this.region, layout.cfg);

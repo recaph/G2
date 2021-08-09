@@ -1,7 +1,10 @@
+import { IGroup } from '@antv/g-base';
 import { Chart } from '../../../../src/index';
 import Link from '../../../../src/interaction/action/element/link-by-color';
 import Context from '../../../../src/interaction/context';
 import { createDiv } from '../../../util/dom';
+
+import 'jest-extended';
 
 describe('list highlight test', () => {
   const chart = new Chart({
@@ -28,7 +31,7 @@ describe('list highlight test', () => {
   const context = new Context(chart);
   const link = new Link(context);
   const elements = interval.elements;
-  let linkGroup;
+  let linkGroup: IGroup;
   it('link', () => {
     context.event = {};
     link.unlink();
@@ -68,10 +71,37 @@ describe('list highlight test', () => {
     expect(linkGroup.getCount()).toBe(2);
   });
 
+  it('custom link active-style', () => {
+    context.event = {};
+    link.unlink();
+    link.clear(); // 事先调用，保证不出错
+    context.event = {
+      target: elements[0].shape,
+    };
+    link.link();
+    //@ts-ignore
+    linkGroup = link.linkGroup;
+    expect(linkGroup.getCount()).toBe(1);
+    // @ts-ignore
+    expect(linkGroup.getChildren()[0].getChildren()[0].attr('fill')).toBe(elements[0].shape.attr('fill'));
+
+    link.unlink();
+    link.clear(); // 事先调用，保证不出错
+    context.event = {
+      target: elements[0].shape,
+    };
+    link.link({ style: { fill: 'red' } });
+    // @ts-ignore
+    expect(linkGroup.getChildren()[0].getChildren()[0].attr('fill')).toBe('red');
+  });
+
   it('clear', () => {
     link.clear();
     expect(linkGroup.getCount()).toBe(0);
+    // @ts-ignore
+    expect(link.cache).toBeEmpty();
   });
+
   it('link null', () => {
     context.event = {
       target: null,
@@ -89,5 +119,31 @@ describe('list highlight test', () => {
     link.link();
     expect(linkGroup.getCount()).toBe(0);
     link.unlink();
+  });
+
+  it('transposed coord', () => {
+    chart.clear();
+    chart.coordinate().transpose();
+    const interval2 = chart.interval().position('year*value').color('type').adjust('stack');
+    chart.render();
+    const firstBBox = interval2.elements[0].shape.getCanvasBBox();
+    const secondBBox = interval2.elements[1].shape.getCanvasBBox();
+    context.event = {};
+    link.clear();
+    context.event = {
+      target: interval2.elements[0].shape,
+    };
+    link.link();
+    expect(linkGroup.getCount()).toBe(1);
+    const group = linkGroup.getFirst() as IGroup;
+    expect(group.getCount()).toBe(3);
+    const path = group.getFirst();
+    expect(path.attr('path')).toEqual([
+      ['M', firstBBox.minX, firstBBox.minY],
+      ['L', secondBBox.minX, secondBBox.maxY],
+      ['L', secondBBox.maxX, secondBBox.maxY],
+      ['L', firstBBox.maxX, firstBBox.minY],
+      ['Z'],
+    ]);
   });
 });

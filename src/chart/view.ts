@@ -18,6 +18,7 @@ import {
   size,
   uniqueId,
   isEqual,
+  isPlainObject,
 } from '@antv/util';
 import { Attribute, Coordinate, Event as GEvent, GroupComponent, ICanvas, IGroup, IShape, Scale } from '../dependents';
 import {
@@ -40,6 +41,7 @@ import {
   ViewCfg,
   ViewPadding,
   ViewAppendPadding,
+  EventPayload,
 } from '../interface';
 import { GROUP_Z_INDEX, LAYER, PLOT_EVENTS, VIEW_LIFE_CIRCLE } from '../constant';
 import Base from '../base';
@@ -48,21 +50,29 @@ import Geometry from '../geometry/base';
 import { createInteraction, Interaction } from '../interaction';
 import { getTheme } from '../theme';
 import { BBox } from '../util/bbox';
-import { getCoordinateClipCfg, isFullCircle, isPointInCoordinate } from '../util/coordinate';
+import { getCoordinateClipCfg, isPointInCoordinate } from '../util/coordinate';
 import { uniq } from '../util/helper';
 import { findDataByPoint } from '../util/tooltip';
 import { parsePadding } from '../util/padding';
+import { getDefaultCategoryScaleRange } from '../util/scale';
+import { createTheme } from '../theme/util';
 import Chart from './chart';
 import { getComponentController, getComponentControllerNames } from './controller';
 import Annotation from './controller/annotation';
 import { Controller } from './controller/base';
 import CoordinateController from './controller/coordinate';
-import TooltipComponent from './controller/tooltip';
+import Tooltip from './controller/tooltip';
+import Slider from './controller/slider';
+import Scrollbar from './controller/scrollbar';
+import Axis from './controller/axis';
+import Gesture from './controller/gesture';
+import Legend from './controller/legend';
 import Event from './event';
 import defaultLayout, { Layout } from './layout';
 import { ScalePool } from './util/scale-pool';
 import { PaddingCal } from './layout/padding-cal';
 import { calculatePadding } from './layout/auto';
+import { defaultSyncViewPadding } from './util/sync-view-padding';
 
 /**
  * G2 视图 View 类
@@ -181,7 +191,7 @@ export class View extends Base {
     this.syncViewPadding = syncViewPadding;
 
     // 初始化 theme
-    this.themeObject = isObject(theme) ? deepMix({}, getTheme('default'), theme) : getTheme(theme);
+    this.themeObject = isObject(theme) ? deepMix({}, getTheme('default'), createTheme(theme)) : getTheme(theme);
     this.init();
   }
 
@@ -215,13 +225,14 @@ export class View extends Base {
    * 生命周期：渲染流程，渲染过程需要处理数据更新的情况。
    * render 函数仅仅会处理 view 和子 view。
    * @param isUpdate 是否触发更新流程。
+   * @param params render 事件参数
    */
-  public render(isUpdate: boolean = false) {
-    this.emit(VIEW_LIFE_CIRCLE.BEFORE_RENDER);
+  public render(isUpdate: boolean = false, payload?: EventPayload) {
+    this.emit(VIEW_LIFE_CIRCLE.BEFORE_RENDER, Event.fromData(this, VIEW_LIFE_CIRCLE.BEFORE_RENDER, payload));
     // 递归渲染
     this.paint(isUpdate);
 
-    this.emit(VIEW_LIFE_CIRCLE.AFTER_RENDER);
+    this.emit(VIEW_LIFE_CIRCLE.AFTER_RENDER, Event.fromData(this, VIEW_LIFE_CIRCLE.AFTER_RENDER, payload));
 
     if (this.visible === false) {
       // 用户在初始化的时候声明 visible: false
@@ -464,6 +475,11 @@ export class View extends Base {
       set(this.options, ['legends'], field);
     } else if (isString(field)) {
       set(this.options, ['legends', field], legendOption);
+      if (isPlainObject(legendOption) && legendOption?.selected) {
+        set(this.options, ['filters', field], (name: string) => {
+          return legendOption?.selected[name] ?? true;
+        });
+      }
     } else {
       // 设置全局的 legend 配置
       set(this.options, ['legends'], field);
@@ -550,7 +566,7 @@ export class View extends Base {
    * @returns [[Annotation]]
    */
   public annotation(): Annotation {
-    return this.getController('annotation') as Annotation;
+    return this.getController('annotation');
   }
 
   /**
@@ -682,7 +698,7 @@ export class View extends Base {
 
     // 需要把已存在的 view 销毁，否则会重复创建
     // 目前针对配置项还没有特别好的 view 更新机制，为了不影响主流流程，所以在这里直接销毁
-    this.views.forEach(view => view.destroy());
+    this.views.forEach((view) => view.destroy());
     this.views = [];
 
     this.initOptions();
@@ -722,7 +738,7 @@ export class View extends Base {
    * @returns View
    */
   public theme(theme: string | LooseObject): View {
-    this.themeObject = isObject(theme) ? deepMix({}, this.themeObject, theme) : getTheme(theme);
+    this.themeObject = isObject(theme) ? deepMix({}, this.themeObject, createTheme(theme)) : getTheme(theme);
 
     return this;
   }
@@ -735,7 +751,7 @@ export class View extends Base {
    * ```ts
    * view.interaction('my-interaction', { extra: 'hello world' });
    * ```
-   * 详细文档可以参考：https://g2.antv.vision/zh/docs/manual/tutorial/interaction
+   * 详细文档可以参考：https://g2.antv.vision/zh/docs/api/general/interaction
    * @param name interaction name
    * @param cfg interaction config
    * @returns
@@ -784,7 +800,7 @@ export class View extends Base {
    */
   public changeData(data: Data) {
     this.isDataChanged = true;
-    this.emit(VIEW_LIFE_CIRCLE.BEFORE_CHANGE_DATA);
+    this.emit(VIEW_LIFE_CIRCLE.BEFORE_CHANGE_DATA, Event.fromData(this, VIEW_LIFE_CIRCLE.BEFORE_CHANGE_DATA, null));
     // 1. 保存数据
     this.data(data);
 
@@ -799,7 +815,7 @@ export class View extends Base {
       view.changeData(data);
     }
 
-    this.emit(VIEW_LIFE_CIRCLE.AFTER_CHANGE_DATA);
+    this.emit(VIEW_LIFE_CIRCLE.AFTER_CHANGE_DATA, Event.fromData(this, VIEW_LIFE_CIRCLE.AFTER_CHANGE_DATA, null));
   }
 
   /* View 管理相关的 API */
@@ -1068,6 +1084,14 @@ export class View extends Base {
     }
   }
 
+  public getController(name: 'tooltip'): Tooltip;
+  public getController(name: 'axis'): Axis;
+  public getController(name: 'legend'): Legend;
+  public getController(name: 'scrollbar'): Scrollbar;
+  public getController(name: 'slider'): Slider;
+  public getController(name: 'annotation'): Annotation;
+  public getController(name: 'gestucre'): Gesture;
+  public getController(name: string): Controller;
   /**
    * 获取 name 对应的 controller 实例
    * @param name
@@ -1082,7 +1106,7 @@ export class View extends Base {
    * @returns View
    */
   public showTooltip(point: Point): View {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
     if (tooltip) {
       tooltip.showTooltip(point);
     }
@@ -1094,7 +1118,7 @@ export class View extends Base {
    * @returns View
    */
   public hideTooltip(): View {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
     if (tooltip) {
       tooltip.hideTooltip();
     }
@@ -1106,7 +1130,7 @@ export class View extends Base {
    * @returns View
    */
   public lockTooltip(): View {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
     if (tooltip) {
       tooltip.lockTooltip();
     }
@@ -1118,7 +1142,7 @@ export class View extends Base {
    * @returns View
    */
   public unlockTooltip(): View {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
     if (tooltip) {
       tooltip.unlockTooltip();
     }
@@ -1130,7 +1154,7 @@ export class View extends Base {
    * @returns 是否锁定
    */
   public isTooltipLocked() {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
     return tooltip && tooltip.isTooltipLocked();
   }
 
@@ -1140,7 +1164,7 @@ export class View extends Base {
    * @returns tooltip 数据项
    */
   public getTooltipItems(point: Point) {
-    const tooltip = this.getController('tooltip') as TooltipComponent;
+    const tooltip = this.getController('tooltip');
 
     return tooltip ? tooltip.getTooltipItems(point) : [];
   }
@@ -1328,7 +1352,7 @@ export class View extends Base {
     this.initComponents(isUpdate);
     // 4. 布局计算每隔 view 的 padding 值
     // 4.1. 自动加 auto padding -> absolute padding，并且增加 appendPadding
-    this.autoPadding  = calculatePadding(this).shrink(parsePadding(this.appendPadding));
+    this.autoPadding = calculatePadding(this).shrink(parsePadding(this.appendPadding));
     // 4.2. 计算出新的 coordinateBBox，更新 Coordinate
     // 这里必须保留，原因是后面子 view 的 viewBBox 或根据 parent 的 coordinateBBox
     this.coordinateBBox = this.viewBBox.shrink(this.autoPadding.getPadding());
@@ -1348,15 +1372,17 @@ export class View extends Base {
    */
   protected renderLayoutRecursive(isUpdate: boolean) {
     // 1. 同步子 view padding
-    if (this.syncViewPadding) {
-      const syncPadding = new PaddingCal();
+    // 根据配置获取 padding
+    const syncViewPaddingFn =
+      this.syncViewPadding === true
+        ? defaultSyncViewPadding
+        : isFunction(this.syncViewPadding)
+        ? this.syncViewPadding
+        : undefined;
 
-      // 所有的 view 的 autoPadding 指向同一个引用
-      this.views.forEach((v: View) => {
-        v.autoPadding = syncPadding.max(v.autoPadding.getPadding());
-      });
-
-      // 更新 coordinate
+    if (syncViewPaddingFn) {
+      syncViewPaddingFn(this, this.views, PaddingCal);
+      // 同步 padding 之后，更新 coordinate
       this.views.forEach((v: View) => {
         v.coordinateBBox = v.viewBBox.shrink(v.autoPadding.getPadding());
         v.adjustCoordinate();
@@ -1379,13 +1405,16 @@ export class View extends Base {
    * @param isUpdate
    */
   protected renderPaintRecursive(isUpdate: boolean) {
+    const middleGroup = this.middleGroup;
     if (this.limitInPlot) {
-      const middleGroup = this.middleGroup;
       const { type, attrs } = getCoordinateClipCfg(this.coordinateInstance);
       middleGroup.setClip({
         type,
         attrs,
       });
+    } else {
+      // 清除已有的 clip
+      middleGroup.setClip(undefined);
     }
 
     // 1. 渲染几何标记
@@ -1602,11 +1631,12 @@ export class View extends Base {
 
     if (ALL_EVENTS.includes(type)) {
       const currentInPlot = this.isPointInPlot(point);
+      const newEvent = e.clone();
 
       if (currentInPlot) {
         const TYPE = `plot:${type}`; // 组合 plot 事件
-        e.type = TYPE;
-        this.emit(TYPE, e);
+        newEvent.type = TYPE;
+        this.emit(TYPE, newEvent);
         if (type === 'mouseleave' || type === 'touchend') {
           // 在plot 内部却离开画布
           this.isPreMouseInPlot = false;
@@ -1617,18 +1647,18 @@ export class View extends Base {
       if (type === 'mousemove' || type === 'touchmove') {
         if (this.isPreMouseInPlot && !currentInPlot) {
           if (type === 'mousemove') {
-            e.type = PLOT_EVENTS.MOUSE_LEAVE;
-            this.emit(PLOT_EVENTS.MOUSE_LEAVE, e);
+            newEvent.type = PLOT_EVENTS.MOUSE_LEAVE;
+            this.emit(PLOT_EVENTS.MOUSE_LEAVE, newEvent);
           }
-          e.type = PLOT_EVENTS.LEAVE;
-          this.emit(PLOT_EVENTS.LEAVE, e);
+          newEvent.type = PLOT_EVENTS.LEAVE;
+          this.emit(PLOT_EVENTS.LEAVE, newEvent);
         } else if (!this.isPreMouseInPlot && currentInPlot) {
           if (type === 'mousemove') {
-            e.type = PLOT_EVENTS.MOUSE_ENTER;
-            this.emit(PLOT_EVENTS.MOUSE_ENTER, e);
+            newEvent.type = PLOT_EVENTS.MOUSE_ENTER;
+            this.emit(PLOT_EVENTS.MOUSE_ENTER, newEvent);
           }
-          e.type = PLOT_EVENTS.ENTER;
-          this.emit(PLOT_EVENTS.ENTER, e);
+          newEvent.type = PLOT_EVENTS.ENTER;
+          this.emit(PLOT_EVENTS.ENTER, newEvent);
         }
         // 赋新的状态值
         this.isPreMouseInPlot = currentInPlot;
@@ -1636,11 +1666,11 @@ export class View extends Base {
         // 可能不在 currentInPlot 中
         if (this.isPreMouseInPlot) {
           if (type === 'mouseleave') {
-            e.type = PLOT_EVENTS.MOUSE_LEAVE;
-            this.emit(PLOT_EVENTS.MOUSE_LEAVE, e);
+            newEvent.type = PLOT_EVENTS.MOUSE_LEAVE;
+            this.emit(PLOT_EVENTS.MOUSE_LEAVE, newEvent);
           }
-          e.type = PLOT_EVENTS.LEAVE;
-          this.emit(PLOT_EVENTS.LEAVE, e);
+          newEvent.type = PLOT_EVENTS.LEAVE;
+          this.emit(PLOT_EVENTS.LEAVE, newEvent);
 
           this.isPreMouseInPlot = false;
         }
@@ -1730,7 +1760,7 @@ export class View extends Base {
    */
   private syncScale() {
     // 最终调用 root view 的
-    this.getRootView().scalePool.sync();
+    this.getRootView().scalePool.sync(this.getCoordinate(), this.theme);
   }
 
   /**
@@ -1798,30 +1828,8 @@ export class View extends Base {
       if (isCategory || isIdentity) {
         // 存在 value 值，且用户没有配置 range 配置
         if (values && !get(scaleOptions, [field, 'range'])) {
-          const count = values.length;
-          let range;
-
-          if (count === 1) {
-            range = [0.5, 1]; // 只有一个分类时,防止计算出现 [0.5,0.5] 的状态
-          } else {
-            let widthRatio = 1;
-            let offset = 0;
-
-            if (isFullCircle(coordinate)) {
-              if (!coordinate.isTransposed) {
-                range = [0, 1 - 1 / count];
-              } else {
-                widthRatio = get(this.theme, 'widthRatio.multiplePie', 1 / 1.3);
-                offset = (1 / count) * widthRatio;
-                range = [offset / 2, 1 - offset / 2];
-              }
-            } else {
-              offset = 1 / count / 2; // 两边留下分类空间的一半
-              range = [offset, 1 - offset]; // 坐标轴最前面和最后面留下空白防止绘制柱状图时
-            }
-          }
           // 更新 range
-          scale.range = range;
+          scale.range = getDefaultCategoryScaleRange(scale, coordinate, this.theme);
         }
       }
     });
@@ -1962,7 +1970,7 @@ export class View extends Base {
     }
 
     // 设置 annotation
-    const annotationComponent = this.getController('annotation') as Annotation;
+    const annotationComponent = this.getController('annotation');
     for (let l = 0; l < annotations.length; l++) {
       const annotationOption = annotations[l];
       annotationComponent.annotation(annotationOption);

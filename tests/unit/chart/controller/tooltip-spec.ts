@@ -1,4 +1,5 @@
 import { Chart } from '../../../../src/index';
+import { Datum } from '../../../../src/interface';
 import { createDiv, removeDom } from '../../../util/dom';
 
 describe('Tooltip', () => {
@@ -59,7 +60,7 @@ describe('Tooltip', () => {
     expect(markerGroup.getChildren().length).toBe(2);
 
     const foregroundGroup = chart.foregroundGroup;
-    expect(foregroundGroup.getChildren().length).toBe(6);
+    expect(foregroundGroup.getChildren().length).toBe(8);
 
     // 延迟生成
     const tooltipDom = container.getElementsByClassName('g2-tooltip')[0];
@@ -118,11 +119,36 @@ describe('Tooltip', () => {
     expect(items[1].data).toEqual({ name: 'Berlin', 月份: 'Mar.', 月均降雨量: 34.5 });
   });
 
+  it('reversed', () => {
+    chart.tooltip({
+      follow: true,
+      shared: true,
+      showCrosshairs: true,
+      showMarkers: true,
+      domStyles: {
+        'g2-tooltip': {
+          border: '1px solid #000',
+          boxShadow: null,
+        },
+      },
+      reversed: true,
+    });
+
+    const point = chart.getXY({ name: 'Berlin', 月份: 'Mar.', 月均降雨量: 34.5 });
+
+    const items = chart.getTooltipItems(point);
+    expect(items.length).toBe(2);
+
+    expect(items[0].title).toBe('Mar.');
+    expect(items[0].data).toEqual({ name: 'Berlin', 月份: 'Mar.', 月均降雨量: 34.5 });
+    expect(items[1].data).toEqual({ name: 'London', 月份: 'Mar.', 月均降雨量: 39.3 });
+  });
+
   it('clear', () => {
     chart.clear();
 
     const foregroundGroup = chart.foregroundGroup;
-    expect(foregroundGroup.getChildren().length).toBe(6);
+    expect(foregroundGroup.getChildren().length).toBe(8);
 
     const tooltipDom = container.getElementsByClassName('g2-tooltip');
     expect(tooltipDom.length).toBe(1);
@@ -434,7 +460,7 @@ describe('showContent', () => {
 
     const tooltip = chart.getController('tooltip');
     // @ts-ignore
-    expect(tooltip.tooltip).toBeUndefined();
+    expect(tooltip.tooltip).toBe(null);
     const tooltipDom = container.getElementsByClassName('g2-tooltip');
     expect(tooltipDom.length).toBe(0);
   });
@@ -537,5 +563,20 @@ describe('tooltip change', () => {
     const crosshairs = tooltip.xCrosshair;
     // @ts-ignore
     expect(crosshairs.get('start').x).toBe(tooltip.items[0].x);
+    chart.hideTooltip();
+  });
+
+  it('tooltip.showContent function', () => {
+    chart.tooltip({
+      showContent: (datum: Datum) => {
+        return datum[0]['title'] !== '1994';
+      },
+    });
+
+    const point = chart.getXY({ year: '1994', value: 17409 });
+    chart.showTooltip(point);
+
+    // @ts-ignore
+    expect(chart.ele.querySelector('.g2-tooltip').style.visibility).toBe('hidden');
   });
 });

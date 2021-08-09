@@ -1,4 +1,4 @@
-import { deepMix, each, get, isArray, isFunction, isNil, isUndefined } from '@antv/util';
+import { deepMix, each, get, isArray, isFunction, isNil, isNumber, isString, isUndefined } from '@antv/util';
 
 import { FIELD_ORIGIN } from '../../constant';
 import { Scale } from '../../dependents';
@@ -76,7 +76,6 @@ export default class GeometryLabel {
 
   public render(mapppingArray: MappingDatum[], isUpdate: boolean = false) {
     const labelItems = this.getLabelItems(mapppingArray);
-
     const labelsRenderer = this.getLabelsRenderer();
     const shapes = this.getGeometryShapes();
     // 渲染文本
@@ -106,8 +105,20 @@ export default class GeometryLabel {
   /**
    * 获取 label 的默认配置
    */
-  protected getDefaultLabelCfg() {
-    return get(this.geometry.theme, 'labels', {});
+  protected getDefaultLabelCfg(offset?: number, position?: string) {
+    const geometry = this.geometry;
+    const { type, theme } = geometry;
+
+    if (
+      type === 'polygon' ||
+      (type === 'interval' && position === 'middle') ||
+      (offset < 0 && !['line', 'point', 'path'].includes(type))
+    ) {
+      // polygon 或者 (interval 且 middle) 或者 offset 小于 0 时，文本展示在图形内部，将其颜色设置为 白色
+      return get(theme, 'innerLabels', {});
+    }
+
+    return get(theme, 'labels', {});
   }
 
   /**
@@ -145,25 +156,23 @@ export default class GeometryLabel {
   ) {}
 
   /**
-   * 获取文本默认偏移量
-   * @param offset
-   * @returns
+   * @desc 获取 label offset
    */
-  protected getDefaultOffset(offset: number) {
+  protected getLabelOffset(offset: number | string): number {
     const coordinate = this.getCoordinate();
     const vector = this.getOffsetVector(offset);
     return coordinate.isTransposed ? vector[0] : vector[1];
   }
 
   /**
-   * 获取每个 label 的偏移量
+   * 获取每个 label 的偏移量 (矢量)
    * @param labelCfg
    * @param index
    * @param total
-   * @returns
+   * @return {Point} offsetPoint
    */
-  protected getLabelOffset(labelCfg: LabelCfg, index: number, total: number) {
-    const offset = this.getDefaultOffset(labelCfg.offset);
+  protected getLabelOffsetPoint(labelCfg: LabelCfg, index: number, total: number): Point {
+    const offset = labelCfg.offset;
     const coordinate = this.getCoordinate();
     const transposed = coordinate.isTransposed;
     const dim = transposed ? 'x' : 'y';
@@ -192,15 +201,19 @@ export default class GeometryLabel {
     const coordinate = this.getCoordinate();
     const total = labelCfg.content.length;
 
-    function getDimValue(value, idx) {
+    function getDimValue(value: number | number[], idx: number, isAvg = false) {
       let v = value;
       if (isArray(v)) {
         if (labelCfg.content.length === 1) {
-          // 如果仅一个 label，多个 y, 取最后一个 y
-          if (v.length <= 2) {
-            v = v[value.length - 1];
-          } else {
+          if (isAvg) {
             v = avg(v);
+          } else {
+            // 如果仅一个 label，多个 y, 取最后一个 y
+            if (v.length <= 2) {
+              v = v[(value as number[]).length - 1];
+            } else {
+              v = avg(v);
+            }
           }
         } else {
           v = v[idx];
@@ -216,19 +229,25 @@ export default class GeometryLabel {
       start: { x: 0, y: 0 },
       color: '#fff',
     };
+    const shape = isArray(mappingData.shape) ? mappingData.shape[0] : mappingData.shape;
+    const isFunnel = shape === 'funnel' || shape === 'pyramid';
+
     // 多边形场景，多用于地图
-    if (mappingData && this.geometry.type === 'polygon') {
+    if (this.geometry.type === 'polygon') {
       const centroid = getPolygonCentroid(mappingData.x, mappingData.y);
       label.x = centroid[0];
       label.y = centroid[1];
+    } else if (this.geometry.type === 'interval' && !isFunnel) {
+      // 对直方图的label X 方向的位置居中
+      label.x = getDimValue(mappingData.x, index, true);
+      label.y = getDimValue(mappingData.y, index);
     } else {
       label.x = getDimValue(mappingData.x, index);
       label.y = getDimValue(mappingData.y, index);
     }
 
     // 处理漏斗图文本位置
-    const shape = isArray(mappingData.shape) ? mappingData.shape[0] : mappingData.shape;
-    if (shape === 'funnel' || shape === 'pyramid') {
+    if (isFunnel) {
       const nextPoints = get(mappingData, 'nextPoints');
       const points = get(mappingData, 'points');
       if (nextPoints) {
@@ -249,7 +268,7 @@ export default class GeometryLabel {
       // 如果 label 支持 position 属性
       this.setLabelPosition(label, mappingData, index, labelCfg.position);
     }
-    const offsetPoint = this.getLabelOffset(labelCfg, index, total);
+    const offsetPoint = this.getLabelOffsetPoint(labelCfg, index, total);
     label.start = { x: label.x, y: label.y };
     label.x += offsetPoint.x;
     label.y += offsetPoint.y;
@@ -268,7 +287,7 @@ export default class GeometryLabel {
     let align: TextAlign = 'center';
     const coordinate = this.getCoordinate();
     if (coordinate.isTransposed) {
-      const offset = this.getDefaultOffset(item.offset);
+      const offset = item.offset;
       if (offset < 0) {
         align = 'right';
       } else if (offset === 0) {
@@ -334,8 +353,7 @@ export default class GeometryLabel {
 
   private getLabelCfgs(mapppingArray: MappingDatum[]): LabelCfg[] {
     const geometry = this.geometry;
-    const defaultLabelCfg = this.getDefaultLabelCfg();
-    const { type, theme, labelOption, scales, coordinate } = geometry;
+    const { labelOption, scales, coordinate } = geometry;
     const { fields, callback, cfg } = labelOption as LabelOption;
     const labelScales = fields.map((field: string) => {
       return scales[field];
@@ -358,12 +376,25 @@ export default class GeometryLabel {
 
       let labelCfg = {
         id: this.getLabelId(mappingData), // 进行 ID 标记
+        elementId: this.geometry.getElementId(mappingData), // label 对应 Element 的 ID
         data: origin, // 存储原始数据
         mappingData, // 存储映射后的数据,
         coordinate, // 坐标系
         ...cfg,
         ...callbackCfg,
       };
+
+      if (isFunction(labelCfg.position)) {
+        labelCfg.position = labelCfg.position(origin, mappingData, index);
+      }
+
+      const offset = this.getLabelOffset(labelCfg.offset || 0);
+      // defaultCfg 需要判断 innerLabels & labels
+      const defaultLabelCfg = this.getDefaultLabelCfg(offset, labelCfg.position);
+      // labelCfg priority: defaultCfg < cfg < callbackCfg
+      labelCfg = deepMix({}, defaultLabelCfg, labelCfg);
+      // 获取最终的 offset
+      labelCfg.offset = this.getLabelOffset(labelCfg.offset || 0);
 
       const content = labelCfg.content;
       if (isFunction(content)) {
@@ -372,12 +403,6 @@ export default class GeometryLabel {
         // 用户未配置 content，则默认为映射的第一个字段的值
         labelCfg.content = originText[0];
       }
-
-      if (isFunction(labelCfg.position)) {
-        labelCfg.position = labelCfg.position(origin, mappingData, index);
-      }
-
-      labelCfg = this.getThemedLabelCfg(labelCfg);
 
       labelCfgs.push(labelCfg);
     });
@@ -406,10 +431,14 @@ export default class GeometryLabel {
     return labelTexts;
   }
 
-  private getOffsetVector(offset = 0) {
+  private getOffsetVector(offset: number | string = 0) {
     const coordinate = this.getCoordinate();
+    let actualOffset = 0;
+    if (isNumber(offset)) {
+      actualOffset = offset;
+    }
     // 如果 x,y 翻转，则偏移 x，否则偏移 y
-    return coordinate.isTransposed ? coordinate.applyMatrix(offset, 0) : coordinate.applyMatrix(0, offset);
+    return coordinate.isTransposed ? coordinate.applyMatrix(actualOffset, 0) : coordinate.applyMatrix(0, actualOffset);
   }
 
   private getGeometryShapes() {

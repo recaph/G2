@@ -1,12 +1,53 @@
-import { each, head, isEqual, last } from '@antv/util';
-import { IShape } from '../../dependents';
-import Element from '../../geometry/element/';
-import { LooseObject } from '../../interface';
+import { each, head, isEqual, last, get, flatten, isArray, uniq, isNil } from '@antv/util';
+import { View } from 'src/chart';
+import { findItemsFromViewRecurisive } from '../../util/tooltip';
+import { IShape, Point, ShapeAttrs } from '../../dependents';
+import Element from '../../geometry/element';
+import { LooseObject, TooltipCfg } from '../../interface';
 import { getAngle, getSectorPath } from '../../util/graphics';
 import Action from './base';
 
+const DEFAULT_REGION_PATH_STYLE = {
+  fill: '#CCD6EC',
+  opacity: 0.3,
+};
+
+export function getItemsOfView(view: View, point: Point, tooltipCfg: TooltipCfg) {
+  let items = findItemsFromViewRecurisive(view, point, tooltipCfg);
+  if (items.length) {
+    // 三层
+    items = flatten(items);
+    for (const itemArr of items) {
+      for (const item of itemArr) {
+        const { x, y } = item.mappingData;
+        item.x = isArray(x) ? x[x.length - 1] : x;
+        item.y = isArray(y) ? y[y.length - 1] : y;
+      }
+    }
+
+    const { shared } = tooltipCfg;
+    // shared: false 代表只显示当前拾取到的 shape 的数据，但是一个 view 会有多个 Geometry，所以有可能会拾取到多个 shape
+    if (shared === false && items.length > 1) {
+      let snapItem = items[0];
+      let min = Math.abs(point.y - snapItem[0].y);
+      for (const aItem of items) {
+        const yDistance = Math.abs(point.y - aItem[0].y);
+        if (yDistance <= min) {
+          snapItem = aItem;
+          min = yDistance;
+        }
+      }
+      items = [snapItem];
+    }
+
+    return uniq(flatten(items));
+  }
+
+  return [];
+}
+
 /**
- * 背景框的 Action
+ * 背景框的 Action. 只作用于 interval 和 schema geometry
  * @ignore
  */
 class ActiveRegion extends Action {
@@ -14,14 +55,23 @@ class ActiveRegion extends Action {
   private regionPath: IShape;
   /**
    * 显示
+   * @param {ShapeAttrs} style region-path 的样式
+   * @param {number} appendRatio 适用于笛卡尔坐标系. 对于 x 轴非 linear 类型: 默认：0.25, x 轴 linear 类型: 默认 0
+   * @param {number} appendWidth  适用于笛卡尔坐标系. 像素级别，优先级 > appendRatio
    */
-  public show() {
+  public show(args?: { style: ShapeAttrs; appendRatio?: number; appendWidth?: number }) {
     const view = this.context.view;
     const ev = this.context.event;
-    const tooltipItems = view.getTooltipItems({
-      x: ev.x,
-      y: ev.y,
-    });
+
+    const tooltipCfg = view.getController('tooltip').getTooltipCfg();
+    const tooltipItems = getItemsOfView(
+      view,
+      {
+        x: ev.x,
+        y: ev.y,
+      },
+      tooltipCfg
+    );
 
     if (isEqual(tooltipItems, this.items)) {
       // 如果拾取数据同上次相同，则不重复绘制
@@ -81,22 +131,30 @@ class ActiveRegion extends Action {
         let path;
         if (coordinate.isRect) {
           const xScale = view.getXScale();
-          const appendRatio = xScale.isLinear ? 0 : 0.25; // 如果 x 轴是数值类型，如直方图，不需要家额外的宽度
+
+          let { appendRatio, appendWidth } = args || {};
+          if (isNil(appendWidth)) {
+            appendRatio = isNil(appendRatio) ? (xScale.isLinear ? 0 : 0.25) : appendRatio; // 如果 x 轴是数值类型，如直方图，默认不需要加额外的宽度
+            appendWidth = coordinate.isTransposed ? appendRatio * lastBBox.height : appendRatio * firstBBox.width;
+          }
+
           let minX: number;
           let minY: number;
           let width: number;
           let height: number;
           if (coordinate.isTransposed) {
             minX = coordinateBBox.minX;
-            minY = Math.min(lastBBox.minY, firstBBox.minY) - appendRatio * lastBBox.height;
+            minY = Math.min(lastBBox.minY, firstBBox.minY) - appendWidth;
             width = coordinateBBox.width;
-            height = groupBBox.height + appendRatio * 2 * lastBBox.height;
+            height = groupBBox.height + appendWidth * 2;
           } else {
-            minX = Math.min(firstBBox.minX, lastBBox.minX) - appendRatio * firstBBox.width;
-            minY = Math.min(coordinateBBox.minY, firstBBox.minY);
-            width = groupBBox.width + appendRatio * 2 * firstBBox.width;
+            minX = Math.min(firstBBox.minX, lastBBox.minX) - appendWidth;
+            // 直角坐标系 非转置：最小值直接取 坐标系 minY
+            minY = coordinateBBox.minY;
+            width = groupBBox.width + appendWidth * 2;
             height = coordinateBBox.height;
           }
+
           path = [
             ['M', minX, minY],
             ['L', minX + width, minY],
@@ -119,14 +177,14 @@ class ActiveRegion extends Action {
           this.regionPath.attr('path', path);
           this.regionPath.show();
         } else {
+          const style = get(args, 'style', DEFAULT_REGION_PATH_STYLE);
           this.regionPath = backgroundGroup.addShape({
             type: 'path',
             name: 'active-region',
             capture: false,
             attrs: {
+              ...style,
               path,
-              fill: '#CCD6EC',
-              opacity: 0.3,
             },
           });
         }

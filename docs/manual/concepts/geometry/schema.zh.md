@@ -22,7 +22,7 @@ order: 6
 
 ## 箱型图
 
-箱形图（Box-plot）又称为盒须图、盒式图或箱线图，是一种用作显示一组数据分散情况资料的统计性图表。主要由五个个数据节点构成，将一组数据从大到小排列，分别计算出他的上边缘，上四分位数 Q3，中位数，下四分位数 Q1。箱型图可以分为：
+箱形图（Box-plot）又称为盒须图、盒式图或箱线图，是一种用作显示一组数据分散情况资料的统计性图表。主要由五个个数据节点构成，将一组数据从大到小排列，分别计算出他的上边缘，上四分位数 Q3，中位数，下四分位数 Q1，下边缘。箱型图可以分为：
 
 - 一维箱型图，仅仅表述单个维度的数据分布
 - 二维箱型图，表述多个分类的数据分布
@@ -45,12 +45,7 @@ order: 6
 颜色可以映射到箱型图的边框上，如果映射的字段不等于映射到 x 的字段类型，则会生成分组的箱型图：
 
 ```javascript
-chart
-  .schema()
-  .adjust('dodge')
-  .position('cut*price')
-  .color('clarity')
-  .shape('box');
+chart.schema().adjust('dodge').position('cut*price').color('clarity').shape('box');
 ```
 
 ![](https://zos.alipayobjects.com/basement/skylark/0ad680ae14791873655806931d17d3/attach/4080/900/image.png#align=left&display=inline&height=461&originHeight=461&originWidth=946&status=done&style=none&width=946)
@@ -60,12 +55,7 @@ chart
 大小可以改变箱型图的宽度，一般使用常量更改箱型图的宽度
 
 ```javascript
-chart
-  .schema()
-  .adjust('dodge')
-  .position('price')
-  .size(10)
-  .shape('box');
+chart.schema().adjust('dodge').position('price').size(10).shape('box');
 ```
 
 ![](https://zos.alipayobjects.com/basement/skylark/0ad680ae14791873851254704d17c0/attach/4080/900/image.png#align=left&display=inline&height=351&originHeight=351&originWidth=892&status=done&style=none&width=892)

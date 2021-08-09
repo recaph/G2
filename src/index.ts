@@ -1,12 +1,11 @@
 import { GeometryCfg } from './geometry/base';
-import { PathCfg } from './geometry/path';
 import { IInteractionContext } from './interface';
 
 // 注册黑暗主题
 import { registerTheme } from './core';
 import { antvDark } from './theme/style-sheet/dark';
-import { createThemeByStylesheet } from './util/theme';
-registerTheme('dark', createThemeByStylesheet(antvDark));
+import { createThemeByStyleSheet } from './theme/util/create-by-style-sheet';
+registerTheme('dark', createThemeByStyleSheet(antvDark));
 
 // 注册 G 渲染引擎
 import * as CanvasEngine from '@antv/g-canvas';
@@ -21,12 +20,13 @@ import { registerGeometry } from './core';
 import Area, { AreaCfg } from './geometry/area';
 import Edge from './geometry/edge';
 import Heatmap from './geometry/heatmap';
-import Interval from './geometry/interval';
+import Interval, { IntervalCfg } from './geometry/interval';
 import Line from './geometry/line';
-import Path from './geometry/path';
+import Path, { PathCfg } from './geometry/path';
 import Point from './geometry/point';
 import Polygon from './geometry/polygon';
 import Schema from './geometry/schema';
+import Violin from './geometry/violin';
 
 registerGeometry('Polygon', Polygon);
 registerGeometry('Interval', Interval);
@@ -37,6 +37,7 @@ registerGeometry('Line', Line);
 registerGeometry('Area', Area);
 registerGeometry('Edge', Edge);
 registerGeometry('Heatmap', Heatmap);
+registerGeometry('Violin', Violin);
 
 // 引入所有内置的 shapes
 import './geometry/shape/area/line';
@@ -64,6 +65,9 @@ import './geometry/shape/schema/candle';
 
 import './geometry/shape/polygon/square';
 
+import './geometry/shape/violin/smooth';
+import './geometry/shape/violin/hollow';
+
 // 注册 Geometry 内置的 label
 import { registerGeometryLabel } from './core';
 import GeometryLabel from './geometry/label/base';
@@ -87,7 +91,10 @@ import { fixedOverlap, overlap } from './geometry/label/layout/overlap';
 import { hideOverlap } from './geometry/label/layout/hide-overlap';
 import { adjustColor } from './geometry/label/layout/adjust-color';
 import { intervalAdjustPosition } from './geometry/label/layout/interval/adjust-position';
+import { intervalHideOverlap } from './geometry/label/layout/interval/hide-overlap';
 import { pointAdjustPosition } from './geometry/label/layout/point/adjust-position';
+import { pathAdjustPosition } from './geometry/label/layout/path/adjust-position';
+import { limitInPlot } from './geometry/label/layout/limit-in-plot';
 
 registerGeometryLabelLayout('overlap', overlap);
 registerGeometryLabelLayout('distribute', distribute);
@@ -95,11 +102,14 @@ registerGeometryLabelLayout('fixed-overlap', fixedOverlap);
 registerGeometryLabelLayout('hide-overlap', hideOverlap);
 registerGeometryLabelLayout('limit-in-shape', limitInShape);
 registerGeometryLabelLayout('limit-in-canvas', limitInCanvas);
+registerGeometryLabelLayout('limit-in-plot', limitInPlot);
 registerGeometryLabelLayout('pie-outer', pieOuterLabelLayout);
 registerGeometryLabelLayout('adjust-color', adjustColor);
 registerGeometryLabelLayout('interval-adjust-position', intervalAdjustPosition);
+registerGeometryLabelLayout('interval-hide-overlap', intervalHideOverlap);
 registerGeometryLabelLayout('point-adjust-position', pointAdjustPosition);
 registerGeometryLabelLayout('pie-spider', pieSpiderLabelLayout);
+registerGeometryLabelLayout('path-adjust-position', pathAdjustPosition);
 
 // 注册需要的动画执行函数
 import { fadeIn, fadeOut } from './animate/animation/fade';
@@ -167,17 +177,17 @@ import SiblingTooltip from './interaction/action/component/tooltip/sibling';
 import TooltipAction from './interaction/action/component/tooltip/geometry';
 import EllipsisTextAction from './interaction/action/component/tooltip/ellipsis-text';
 
-import ElmentActive from './interaction/action/element/active';
+import ElementActive from './interaction/action/element/active';
 import ElementLinkByColor from './interaction/action/element/link-by-color';
-import ElmentRangeActive from './interaction/action/element/range-active';
-import ElmentSingleActive from './interaction/action/element/single-active';
+import ElementRangeActive from './interaction/action/element/range-active';
+import ElementSingleActive from './interaction/action/element/single-active';
 
-import ElmentHighlight from './interaction/action/element/highlight';
-import ElmentHighlightByColor from './interaction/action/element/highlight-by-color';
-import ElmentHighlightByX from './interaction/action/element/highlight-by-x';
+import ElementHighlight from './interaction/action/element/highlight';
+import ElementHighlightByColor from './interaction/action/element/highlight-by-color';
+import ElementHighlightByX from './interaction/action/element/highlight-by-x';
 
-import ElmentRangeHighlight from './interaction/action/element/range-highlight';
-import ElmentSingleHighlight from './interaction/action/element/single-highlight';
+import ElementRangeHighlight, { ELEMENT_RANGE_HIGHLIGHT_EVENTS } from './interaction/action/element/range-highlight';
+import ElementSingleHighlight from './interaction/action/element/single-highlight';
 
 import ElementRangeSelected from './interaction/action/element/range-selected';
 import ElementSelected from './interaction/action/element/selected';
@@ -187,6 +197,7 @@ import ListActive from './interaction/action/component/list-active';
 import ListHighlight from './interaction/action/component/list-highlight';
 import ListSelected from './interaction/action/component/list-selected';
 import ListUnchecked from './interaction/action/component/list-unchecked';
+import ListChecked from './interaction/action/component/list-checked';
 
 import CircleMask from './interaction/action/mask/circle';
 import DimMask from './interaction/action/mask/dim-rect';
@@ -196,7 +207,7 @@ import SmoothPathMask from './interaction/action/mask/smooth-path';
 
 import CursorAction from './interaction/action/cursor';
 import DataFilter from './interaction/action/data/filter';
-import DataRangeFilter from './interaction/action/data/range-filter';
+import DataRangeFilter, { BRUSH_FILTER_EVENTS } from './interaction/action/data/range-filter';
 import SiblingFilter from './interaction/action/data/sibling-filter';
 
 import ElementFilter from './interaction/action/element/filter';
@@ -210,17 +221,17 @@ import ScaleZoom from './interaction/action/view/scale-zoom';
 registerAction('tooltip', TooltipAction);
 registerAction('sibling-tooltip', SiblingTooltip);
 registerAction('ellipsis-text', EllipsisTextAction);
-registerAction('element-active', ElmentActive);
-registerAction('element-single-active', ElmentSingleActive);
-registerAction('element-range-active', ElmentRangeActive);
+registerAction('element-active', ElementActive);
+registerAction('element-single-active', ElementSingleActive);
+registerAction('element-range-active', ElementRangeActive);
 
-registerAction('element-highlight', ElmentHighlight);
-registerAction('element-highlight-by-x', ElmentHighlightByX);
-registerAction('element-highlight-by-color', ElmentHighlightByColor);
+registerAction('element-highlight', ElementHighlight);
+registerAction('element-highlight-by-x', ElementHighlightByX);
+registerAction('element-highlight-by-color', ElementHighlightByColor);
 
-registerAction('element-single-highlight', ElmentSingleHighlight);
-registerAction('element-range-highlight', ElmentRangeHighlight);
-registerAction('element-sibling-highlight', ElmentRangeHighlight, {
+registerAction('element-single-highlight', ElementSingleHighlight);
+registerAction('element-range-highlight', ElementRangeHighlight);
+registerAction('element-sibling-highlight', ElementRangeHighlight, {
   effectSiblings: true,
   effectByRecord: true,
 });
@@ -235,6 +246,7 @@ registerAction('list-active', ListActive);
 registerAction('list-selected', ListSelected);
 registerAction('list-highlight', ListHighlight);
 registerAction('list-unchecked', ListUnchecked);
+registerAction('list-checked', ListChecked);
 
 registerAction('legend-item-highlight', ListHighlight, {
   componentNames: ['legend'],
@@ -631,7 +643,7 @@ declare module './chart/view' {
      * @param [cfg] 传入 Interval 构造函数的配置。
      * @returns interval 返回 Interval 实例。
      */
-    interval(cfg?: Partial<GeometryCfg>): Interval;
+    interval(cfg?: Partial<IntervalCfg>): Interval;
     /**
      * 创建 Schema 几何标记。
      * @param [cfg] 传入 Schema 构造函数的配置。
@@ -668,19 +680,18 @@ declare module './chart/view' {
      * @returns heatmap 返回 Heatmap 实例。
      */
     heatmap(cfg?: Partial<GeometryCfg>): Heatmap;
+    /**
+     * 创建 Violin 几何标记。
+     * @param [cfg] 传入 Violin 构造函数的配置。
+     * @returns violin 返回 Violin 实例。
+     */
+    violin(cfg?: Partial<GeometryCfg>): Violin;
   }
 }
 
+// 暴露一些常量
+export { VIEW_LIFE_CIRCLE } from './constant';
+/** brush 范围筛选的一些事件常量 */
+export { BRUSH_FILTER_EVENTS, ELEMENT_RANGE_HIGHLIGHT_EVENTS };
+
 export * from './core';
-// 一些工具方法导出
-import { getAngle, polarToCartesian } from './util/graphics';
-import { rotate, transform, translate, zoom } from './util/transform';
-import EllipsisText from './interaction/action/component/tooltip/ellipsis-text';
-export const Util = {
-  translate,
-  rotate,
-  zoom,
-  transform,
-  getAngle,
-  polarToCartesian,
-};

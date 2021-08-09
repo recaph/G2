@@ -7,7 +7,7 @@ import Geometry from '../../geometry/base';
 import { BBox } from '../../util/bbox';
 import { directionToPosition } from '../../util/direction';
 import { omit } from '../../util/helper';
-import { getCustomLegendItems, getLegendItems, getLegendLayout } from '../../util/legend';
+import { getCustomLegendItems, getLegendItems, getLegendLayout, getLegendThemeCfg } from '../../util/legend';
 import { getName } from '../../util/scale';
 import View from '../view';
 import { Controller } from './base';
@@ -72,7 +72,10 @@ export default class Legend extends Controller<AllLegendsOptions> {
     each(this.components, (co: ComponentOption) => {
       const { component, direction } = co;
       const layout = getLegendLayout(direction);
-      const maxSize = this.getCategoryLegendSizeCfg(layout);
+      const maxWidthRatio = component.get('maxWidthRatio');
+      const maxHeightRatio = component.get('maxHeightRatio');
+
+      const maxSize = this.getCategoryLegendSizeCfg(layout, maxWidthRatio, maxHeightRatio);
 
       const maxWidth = component.get('maxWidth');
       const maxHeight = component.get('maxHeight');
@@ -341,7 +344,7 @@ export default class Legend extends Controller<AllLegendsOptions> {
    * @param legendOption
    */
   private createContinuousLegend(geometry: Geometry, attr: Attribute, scale: Scale, legendOption: any) {
-    const cfg = this.getContinuousCfg(geometry, attr, scale, legendOption);
+    const cfg = this.getContinuousCfg(geometry, attr, scale, omit(legendOption, ['value']));
     return new ContinuousLegend(cfg);
   }
 
@@ -364,7 +367,7 @@ export default class Legend extends Controller<AllLegendsOptions> {
    * @param scale
    * @param legendOption
    */
-  private getContinuousCfg(geometry: Geometry, attr: Attribute, scale: Scale, legendOption: any): object {
+  private getContinuousCfg(geometry: Geometry, attr: Attribute, scale: Scale, legendOption: any) {
     const ticks = scale.getTicks();
 
     const containMin = find(ticks, (tick: Tick) => tick.value === 0);
@@ -460,21 +463,19 @@ export default class Legend extends Controller<AllLegendsOptions> {
    * @param custom
    * @param legendOption
    */
-  private getCategoryCfg(
-    geometry: Geometry,
-    attr: Attribute,
-    scale: Scale,
-    legendOption: any,
-    custom?: boolean
-  ): object {
+  private getCategoryCfg(geometry: Geometry, attr: Attribute, scale: Scale, legendOption: any, custom?: boolean) {
     const container = this.container;
     // if position is not set, use top as default
     const direction = get(legendOption, 'position', DIRECTION.BOTTOM);
 
+    const legendTheme = getLegendThemeCfg(this.view.getTheme(), direction);
+
     // the default marker style
-    const themeMarker = get(this.view.getTheme(), ['components', 'legend', direction, 'marker']);
+    const themeMarker = get(legendTheme, ['marker']);
     const userMarker = get(legendOption, 'marker');
     const layout = getLegendLayout(direction);
+    const themePageNavigator = get(legendTheme, ['pageNavigator']);
+    const userPageNavigator = get(legendOption, 'pageNavigator');
 
     const items = custom
       ? getCustomLegendItems(themeMarker, userMarker, legendOption.items)
@@ -489,13 +490,16 @@ export default class Legend extends Controller<AllLegendsOptions> {
         title
       );
     }
+    const maxWidthRatio = get(legendOption, 'maxWidthRatio');
+    const maxHeightRatio = get(legendOption, 'maxHeightRatio');
 
-    const baseCfg: LooseObject = this.getCategoryLegendSizeCfg(layout);
+    const baseCfg: LooseObject = this.getCategoryLegendSizeCfg(layout, maxWidthRatio, maxHeightRatio);
     baseCfg.container = container;
     baseCfg.layout = layout;
     baseCfg.items = items;
     baseCfg.title = title;
     baseCfg.animateOption = DEFAULT_ANIMATE_CFG;
+    baseCfg.pageNavigator = deepMix({}, themePageNavigator, userPageNavigator);
 
     const categoryCfg = this.mergeLegendCfg(baseCfg, legendOption, direction);
     if (categoryCfg.reversed) {
@@ -520,7 +524,7 @@ export default class Legend extends Controller<AllLegendsOptions> {
    */
   private mergeLegendCfg(baseCfg: object, legendOption: LegendOption, direction: DIRECTION) {
     const position = direction.split('-')[0];
-    const themeObject = get(this.view.getTheme(), ['components', 'legend', position], {});
+    const themeObject = getLegendThemeCfg(this.view.getTheme(), position);
 
     return deepMix({}, themeObject, baseCfg, legendOption);
   }
@@ -541,18 +545,22 @@ export default class Legend extends Controller<AllLegendsOptions> {
     return find(this.components, (co) => co.id === id);
   }
 
-  private getCategoryLegendSizeCfg(layout: 'horizontal' | 'vertical') {
+  private getCategoryLegendSizeCfg(
+    layout: 'horizontal' | 'vertical',
+    maxWidthRatio = COMPONENT_MAX_VIEW_PERCENTAGE,
+    maxHeightRatio = COMPONENT_MAX_VIEW_PERCENTAGE
+  ) {
     const { width: vw, height: vh } = this.view.viewBBox;
     // 目前 legend 的布局是以 viewBBox 为参照
     // const { width: cw, height: ch } = this.view.coordinateBBox;
     return layout === 'vertical'
       ? {
-          maxWidth: vw * COMPONENT_MAX_VIEW_PERCENTAGE,
+          maxWidth: vw * maxWidthRatio,
           maxHeight: vh,
         }
       : {
           maxWidth: vw,
-          maxHeight: vh * COMPONENT_MAX_VIEW_PERCENTAGE,
+          maxHeight: vh * maxHeightRatio,
         };
   }
 }

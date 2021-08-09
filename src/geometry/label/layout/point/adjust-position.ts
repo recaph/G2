@@ -1,6 +1,5 @@
 import { groupBy, keys, map } from '@antv/util';
 import { IElement, IGroup, IShape, BBox } from '../../../../dependents';
-import { isIntersect } from '../../../../util/collision-detect';
 import Geometry from '../../../base';
 import Element from '../../../element';
 import { LabelItem } from '../../interface';
@@ -88,7 +87,7 @@ export function pointAdjustPosition(
 
   const element: Element = shapes[0]?.get('element');
   const geometry: Geometry = element?.geometry;
-  if (!geometry) {
+  if (!geometry || geometry.type !== 'point') {
     return;
   }
   const [xField, yField] = geometry.getXYFields();

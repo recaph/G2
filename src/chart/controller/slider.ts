@@ -1,4 +1,4 @@
-import { deepMix, get, isObject, size, clamp, isNil, noop, throttle, groupBy, keys, isEmpty } from '@antv/util';
+import { deepMix, get, isObject, size, clamp, isNil, noop, throttle, isEmpty, valuesOfKey } from '@antv/util';
 import { COMPONENT_TYPE, DIRECTION, LAYER, VIEW_LIFE_CIRCLE } from '../../constant';
 import { IGroup, Slider as SliderComponent } from '../../dependents';
 import { ComponentOption, Datum, Padding } from '../../interface';
@@ -63,7 +63,7 @@ export default class Slider extends Controller<SliderOption> {
       this.end = end;
     }
 
-    const { data: viewData} = this.view.getOptions();
+    const { data: viewData } = this.view.getOptions();
     if (this.option && !isEmpty(viewData)) {
       if (this.slider) {
         // exist, update
@@ -140,7 +140,7 @@ export default class Slider extends Controller<SliderOption> {
    * 创建 slider 组件
    */
   private createSlider(): ComponentOption {
-    const cfg = this.getSliderCfg();
+    const cfg: any = this.getSliderCfg();
     // 添加 slider 组件
     const component = new SliderComponent({
       container: this.container,
@@ -271,9 +271,9 @@ export default class Slider extends Controller<SliderOption> {
   private getMinMaxText(min: number, max: number) {
     const data = this.view.getOptions().data;
     const xScale = this.view.getXScale();
-    const groupedData = groupBy(data, xScale.field);
     const isHorizontal = true;
-    const xValues = isHorizontal ? keys(groupedData) : keys(groupedData).reverse();
+    const values = valuesOfKey(data, xScale.field);
+    const xValues = isHorizontal ? values : values.reverse();
     const dataSize = size(data);
 
     if (!xScale || !dataSize) {
@@ -308,15 +308,13 @@ export default class Slider extends Controller<SliderOption> {
   private changeViewData(min: number, max: number) {
     const data = this.view.getOptions().data;
     const xScale = this.view.getXScale();
-    const groupedData = groupBy(data, xScale.field);
-    const isHorizontal = true;
-    const xValues = isHorizontal ? keys(groupedData) : keys(groupedData).reverse();
     const dataSize = size(data);
-
     if (!xScale || !dataSize) {
       return;
     }
-
+    const isHorizontal = true;
+    const values = valuesOfKey(data, xScale.field);
+    const xValues = isHorizontal ? values : values.reverse();
     const xTickCount = size(xValues);
 
     const minIndex = Math.floor(min * (xTickCount - 1));

@@ -32,14 +32,28 @@ function _convertArr(arr: number[], coord: Coordinate): any[] {
   }
   return tmp;
 }
+function _convertArcPath(path: PathCommand, coord: Coordinate): any[] {
+  const { isTransposed } = coord;
+  const r = path[1];
+  const x = path[6];
+  const y = path[7];
+  const point = coord.convert({ x, y });
+  const direction = isTransposed ? 0 : 1;
+  return ['A', r, r, 0, 0, direction, point.x, point.y];
+}
 
 function _convertPolarPath(pre: PathCommand, cur: PathCommand, coord: Coordinate): PathCommand[] {
   const { isTransposed, startAngle, endAngle } = coord;
-
-  const prePoint = {
-    x: pre[1],
-    y: pre[2],
-  };
+  const prePoint =
+    pre[0].toLowerCase() === 'a'
+      ? {
+          x: pre[6],
+          y: pre[7],
+        }
+      : {
+          x: pre[1],
+          y: pre[2],
+        };
   const curPoint = {
     x: cur[1],
     y: cur[2],
@@ -99,72 +113,91 @@ export const smoothBezier = (
   constraint: Position[]
 ): Position[] => {
   const cps = [];
+  const hasConstraint = !!constraint;
 
   let prevPoint: Position;
   let nextPoint: Position;
-  const hasConstraint = !!constraint;
   let min: Position;
   let max: Position;
-  if (hasConstraint) {
-    min = [Infinity, Infinity];
-    max = [-Infinity, -Infinity];
+  let nextCp0: Position;
+  let cp1: Position;
+  let cp0: Position;
 
+  if (hasConstraint) {
+    [min, max] = constraint;
     for (let i = 0, l = points.length; i < l; i++) {
       const point = points[i];
       min = vec2.min([0, 0], min, point) as [number, number];
       max = vec2.max([0, 0], max, point) as [number, number];
     }
-    min = vec2.min([0, 0], min, constraint[0]) as [number, number];
-    max = vec2.max([0, 0], max, constraint[1]) as [number, number];
   }
 
   for (let i = 0, len = points.length; i < len; i++) {
     const point = points[i];
-    if (isLoop) {
-      prevPoint = points[i ? i - 1 : len - 1];
-      nextPoint = points[(i + 1) % len];
+    if (i === 0 && !isLoop) {
+      cp0 = point;
+    } else if (i === len - 1 && !isLoop) {
+      cp1 = point;
+      cps.push(cp0);
+      cps.push(cp1);
     } else {
-      if (i === 0 || i === len - 1) {
-        cps.push(point);
-        continue;
-      } else {
-        prevPoint = points[i - 1];
-        nextPoint = points[i + 1];
+      prevPoint = points[isLoop ? (i ? i - 1 : len - 1) : i - 1];
+      nextPoint = points[isLoop ? (i + 1) % len : i + 1];
+
+      let v: [number, number] = [0, 0];
+      v = vec2.sub(v, nextPoint, prevPoint) as [number, number];
+      v = vec2.scale(v, v, smooth) as [number, number];
+
+      let d0 = vec2.distance(point, prevPoint);
+      let d1 = vec2.distance(point, nextPoint);
+
+      const sum = d0 + d1;
+      if (sum !== 0) {
+        d0 /= sum;
+        d1 /= sum;
       }
+
+      let v1 = vec2.scale([0, 0], v, -d0);
+      let v2 = vec2.scale([0, 0], v, d1);
+
+      cp1 = vec2.add([0, 0], point, v1) as Position;
+      nextCp0 = vec2.add([0, 0], point, v2) as Position;
+
+      // 下一个控制点必须在这个点和下一个点之间
+      nextCp0 = vec2.min([0, 0], nextCp0, vec2.max([0, 0], nextPoint, point)) as Position;
+      nextCp0 = vec2.max([0, 0], nextCp0, vec2.min([0, 0], nextPoint, point)) as Position;
+
+      // 重新计算 cp1 的值
+      v1 = vec2.sub([0, 0], nextCp0, point);
+      v1 = vec2.scale([0, 0], v1, -d0 / d1);
+      cp1 = vec2.add([0, 0], point, v1) as Position;
+
+      // 上一个控制点必须要在上一个点和这一个点之间
+      cp1 = vec2.min([0, 0], cp1, vec2.max([0, 0], prevPoint, point)) as Position;
+      cp1 = vec2.max([0, 0], cp1, vec2.min([0, 0], prevPoint, point)) as Position;
+
+      // 重新计算 nextCp0 的值
+      v2 = vec2.sub([0, 0], point, cp1);
+      v2 = vec2.scale([0, 0], v2, d1 / d0);
+      nextCp0 = vec2.add([0, 0], point, v2) as Position;
+
+      if (hasConstraint) {
+        cp1 = vec2.max([0, 0], cp1, min) as Position;
+        cp1 = vec2.min([0, 0], cp1, max) as Position;
+        nextCp0 = vec2.max([0, 0], nextCp0, min) as Position;
+        nextCp0 = vec2.min([0, 0], nextCp0, max) as Position;
+      }
+
+      cps.push(cp0);
+      cps.push(cp1);
+      cp0 = nextCp0;
     }
-    let v: [number, number] = [0, 0];
-    v = vec2.sub(v, nextPoint, prevPoint) as [number, number];
-    v = vec2.scale(v, v, smooth) as [number, number];
-
-    let d0 = vec2.distance(point, prevPoint);
-    let d1 = vec2.distance(point, nextPoint);
-
-    const sum = d0 + d1;
-    if (sum !== 0) {
-      d0 /= sum;
-      d1 /= sum;
-    }
-
-    const v1 = vec2.scale([0, 0], v, -d0);
-    const v2 = vec2.scale([0, 0], v, d1);
-
-    let cp0 = vec2.add([0, 0], point, v1);
-    let cp1 = vec2.add([0, 0], point, v2);
-
-    if (hasConstraint) {
-      cp0 = vec2.max([0, 0], cp0, min);
-      cp0 = vec2.min([0, 0], cp0, max);
-      cp1 = vec2.max([0, 0], cp1, min);
-      cp1 = vec2.min([0, 0], cp1, max);
-    }
-
-    cps.push(cp0);
-    cps.push(cp1);
   }
 
   if (isLoop) {
     cps.push(cps.shift());
   }
+
   return cps;
 };
 
@@ -257,6 +290,9 @@ export function convertNormalPath(coord, path: PathCommand[]): PathCommand[] {
       case 'c':
         tmp.push(_convertArr(subPath, coord));
         break;
+      case 'a':
+        tmp.push(_convertArcPath(subPath, coord));
+        break;
       case 'z':
       default:
         tmp.push(subPath);
@@ -297,6 +333,9 @@ export function convertPolarPath(coord, path: PathCommand[]): PathCommand[] {
           // y 不相等，所以直接转换
           tmp.push(_convertArr(subPath, coord));
         }
+        break;
+      case 'a':
+        tmp.push(_convertArcPath(subPath, coord));
         break;
       case 'z':
       default:

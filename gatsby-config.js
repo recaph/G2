@@ -21,6 +21,9 @@ module.exports = {
       '3.x': 'https://g2-v3.antv.vision/',
       '2.x': 'https://antv.vision/old-site/g2/doc/index.html',
     },
+    showChartResize: true, // 是否在demo页展示图表视图切换
+    showAPIDoc: true, // 是否在demo页展示API文档
+    themeSwitcher: 'g2',
     navs: [
       {
         slug: 'docs/manual',
@@ -47,38 +50,38 @@ module.exports = {
         order: 0,
       },
     ],
-    docs: [
+    ecosystems: [
       {
-        slug: 'manual/tutorial',
-        title: {
-          zh: '基础教程',
-          en: 'Tutorials',
+        name: {
+          zh: 'G2Plot（开箱即用的图表库）',
+          en: 'G2Plot (A charting library)',
         },
-        order: 3,
+        url: 'https://g2plot.antv.vision',
       },
+      {
+        name: {
+          zh: 'AntV ThemeSet（主题构建器）',
+          en: 'AntV ThemeSet',
+        },
+        url: 'https://theme-set.antv.vision',
+      },
+    ],
+    docs: [
       {
         slug: 'manual/concepts',
         title: {
-          zh: '核心概念',
-          en: 'Main Concepts',
+          zh: '可视化基础概念',
+          en: 'Visualization Concepts',
         },
-        order: 5,
+        order: 2,
       },
       {
-        slug: 'manual/concepts/geometry',
+        slug: 'manual/tutorial',
         title: {
-          zh: '几何标记与图表类型',
-          en: 'Geometry and Charts',
+          zh: '教程和文章',
+          en: 'Tutorials',
         },
-        order: 5,
-      },
-      {
-        slug: 'manual/developer',
-        title: {
-          zh: '开发者教程',
-          en: 'For Developers',
-        },
-        order: 6,
+        order: 3,
       },
       {
         slug: 'manual/dataset',
@@ -86,14 +89,47 @@ module.exports = {
           zh: 'DataSet',
           en: 'DataSet',
         },
-        order: 7,
+        order: 4,
       },
       {
-        slug: 'api',
+        slug: 'manual/concepts/component',
         title: {
-          zh: 'API 文档',
-          en: 'API Doc',
+          zh: '图形组件',
+          en: 'Components',
         },
+        order: 1,
+      },
+      {
+        slug: 'manual/concepts/geometry',
+        title: {
+          zh: '几何图形',
+          en: 'Geometry',
+        },
+        order: 2,
+      },
+      {
+        slug: 'api/general',
+        title: {
+          zh: 'G2 详细手册',
+          en: 'G2 General Documentation',
+        },
+        order: 0,
+      },
+      {
+        slug: 'api/advanced',
+        title: {
+          zh: '高级进阶功能',
+          en: 'Advanced Chart Features',
+        },
+        order: 1,
+      },
+      {
+        slug: 'api/shape',
+        title: {
+          zh: '绘图属性速查',
+          en: 'Quick Reference for Plotting Properties',
+        },
+        order: 2,
       },
     ],
     examples: [
@@ -101,8 +137,16 @@ module.exports = {
         slug: 'gallery',
         icon: 'gallery',
         title: {
-          zh: '官方精品库',
-          en: 'Featured',
+          zh: '',
+          en: '',
+        },
+      },
+      {
+        slug: 'case',
+        icon: 'gallery',
+        title: {
+          zh: '场景案例',
+          en: 'Show Case',
         },
       },
       {
@@ -255,6 +299,9 @@ module.exports = {
       indexName: 'antv_g2',
     },
     playground: {
+      devDependencies: {
+        typescript: 'latest',
+      },
       htmlCodeTemplate: `<!DOCTYPE html>
         <html>
           <head>

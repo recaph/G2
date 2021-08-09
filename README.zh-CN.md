@@ -19,8 +19,8 @@
 <p align="center">
   <a href="https://g2.antv.vision/zh">网站</a> •
   <a href="https://g2.antv.vision/zh/docs/manual/about-g2">教程文档</a> •
-  <a href="https://www.yuque.com/antv">博客</a>
-
+  <a href="https://www.yuque.com/antv">博客</a> •
+  <a href="https://github.com/antvis/G2Plot">G2Plot</a>
 </p>
 
 G2 是一套基于图形语法理论的可视化底层引擎，以数据驱动，提供图形语法与交互语法，具有高度的易用性和扩展性。使用 G2，你可以无需关注图表各种繁琐的实现细节，一条语句即可使用 Canvas 或 SVG 构建出各种各样的可交互的统计图表。
@@ -104,10 +104,20 @@ $ npm start
 ## 🏷️ 版本
 
 - v3.5.x: https://github.com/antvis/G2/tree/v3.5.x
-- v3.6.x: https://github.com/antvis/G2/tree/v3.6.x
+- v4.0.x: https://github.com/antvis/G2/tree/v4.0.x
+
+> 你也可以在业务中使用基于 G2 封装的常规统计图表 **[G2Plot](https://github.com/antvis/G2Plot)**，可以使用配置的方式快速生成一个通用图表，降低开发者的使用成本。
 
 ## 🤝 如何贡献
 
 如果您在使用的过程中碰到问题，可以先通过 [issues](https://github.com/antvis/g2/issues) 看看有没有类似的 bug 或者建议。
 
 如需提交代码，请遵从我们的[贡献指南](https://github.com/antvis/g2/blob/master/CONTRIBUTING.md)。
+
+<a href="https://issuehunt.io/r/antvis/G2" rel="nofollow" target="_blank"><img src="https://camo.githubusercontent.com/fcf6ed4dcbd95ccadfe62647fc93194b7262c862de38406e5dae68aa682c85c3/68747470733a2f2f697373756568756e742e696f2f7374617469632f656d6265642f697373756568756e742d627574746f6e2d76312e737667" alt="Let's fund issues in this repository" data-canonical-src="https://issuehunt.io/static/embed/issuehunt-button-v1.svg" style="max-width:100%;"></a>
+
+## 联系我们
+
+钉钉群组号码: 30233731
+
+<img src="https://gw.alipayobjects.com/zos/antfincdn/9sHnl5k%26u4/dingdingqun.png" width="200" height="266" />

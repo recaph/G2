@@ -1,13 +1,13 @@
-import { deepMix, find, flatten, get, isArray, isEqual, isFunction, mix, isString, clone, isBoolean} from '@antv/util';
+import { deepMix, find, get, isEqual, isFunction, mix, isString, isBoolean, flatten, isArray } from '@antv/util';
 import { Crosshair, HtmlTooltip, IGroup } from '../../dependents';
-import Geometry from '../../geometry/base';
-import { Point, TooltipOption } from '../../interface';
+import { Point, TooltipItem, TooltipOption } from '../../interface';
 import { getAngleByPoint, getDistanceToCenter, isPointInCoordinate } from '../../util/coordinate';
 import { polarToCartesian } from '../../util/graphics';
-import { findDataByPoint, getTooltipItems } from '../../util/tooltip';
+import { findItemsFromView } from '../../util/tooltip';
 import { BBox } from '../../util/bbox';
 import { Controller } from './base';
 import Event from '../event';
+import View from '../view';
 
 // Filter duplicates, use `name`, `color`, `value` and `title` property values as condition
 function uniq(items) {
@@ -79,11 +79,14 @@ export default class Tooltip extends Controller<TooltipOption> {
       y: items[0].y,
     }; // 数据点位置
 
-    view.emit('tooltip:show', Event.fromData(view, 'tooltip:show', {
-      items,
-      title,
-      ...point,
-    }));
+    view.emit(
+      'tooltip:show',
+      Event.fromData(view, 'tooltip:show', {
+        items,
+        title,
+        ...point,
+      })
+    );
 
     const cfg = this.getTooltipCfg();
     const { follow, showMarkers, showCrosshairs, showContent, marker } = cfg;
@@ -91,13 +94,16 @@ export default class Tooltip extends Controller<TooltipOption> {
     const lastTitle = this.title;
     if (!isEqual(lastTitle, title) || !isEqual(lastItems, items)) {
       // 内容发生变化了更新 tooltip
-      view.emit('tooltip:change', Event.fromData(view, 'tooltip:change', {
-        items,
-        title,
-        ...point,
-      }));
+      view.emit(
+        'tooltip:change',
+        Event.fromData(view, 'tooltip:change', {
+          items,
+          title,
+          ...point,
+        })
+      );
 
-      if (showContent) {
+      if (isFunction(showContent) ? showContent(items) : showContent) {
         // 展示 tooltip 内容框才渲染 tooltip
         if (!this.tooltip) {
           // 延迟生成
@@ -108,7 +114,7 @@ export default class Tooltip extends Controller<TooltipOption> {
             {},
             cfg,
             {
-              items,
+              items: this.getItemsAfterProcess(items),
               title,
             },
             follow ? point : {}
@@ -223,6 +229,7 @@ export default class Tooltip extends Controller<TooltipOption> {
     if (tooltipMarkersGroup) {
       tooltipMarkersGroup.clear();
     }
+    this.reset();
   }
 
   public destroy() {
@@ -240,6 +247,10 @@ export default class Tooltip extends Controller<TooltipOption> {
       this.guideGroup.remove(true);
     }
 
+    this.reset();
+  }
+
+  public reset() {
     this.items = null;
     this.title = null;
     this.tooltipMarkersGroup = null;
@@ -361,7 +372,7 @@ export default class Tooltip extends Controller<TooltipOption> {
   }
 
   // 获取 tooltip 配置，因为用户可能会通过 view.tooltip() 重新配置 tooltip，所以就不做缓存，每次直接读取
-  protected getTooltipCfg() {
+  public getTooltipCfg() {
     const view = this.view;
     const option = view.getOptions().tooltip;
     const processOption = this.processCustomContent(option);
@@ -375,14 +386,14 @@ export default class Tooltip extends Controller<TooltipOption> {
 
   // process customContent
   protected processCustomContent(option: TooltipOption) {
-    if(isBoolean(option) || !get(option, 'customContent')){
+    if (isBoolean(option) || !get(option, 'customContent')) {
       return option;
     }
     const currentCustomContent = option.customContent;
     const customContent = (title: string, items: any[]) => {
       const content = currentCustomContent(title, items) || '';
-      return isString(content) ? '<div class="g2-tooltip">' + content + '</div>' : content ; 
-    }
+      return isString(content) ? '<div class="g2-tooltip">' + content + '</div>' : content;
+    };
     return {
       ...option,
       customContent,
@@ -670,79 +681,14 @@ export default class Tooltip extends Controller<TooltipOption> {
     return tooltipCrosshairsGroup;
   }
 
-  private getTooltipItemsByHitShape(geometry, point, title) {
-    const result = [];
-    const container = geometry.container;
-    const shape = container.getShape(point.x, point.y);
-    if (shape && shape.get('visible') && shape.get('origin')) {
-      const mappingData = shape.get('origin').mappingData;
-      const items = getTooltipItems(mappingData, geometry, title);
-      if (items.length) {
-        result.push(items);
-      }
-    }
-
-    return result;
-  }
-
-  private getTooltipItemsByFindData(geometry: Geometry, point, title) {
-    const result = [];
-    const dataArray = geometry.dataArray;
-    geometry.sort(dataArray); // 先进行排序，便于 tooltip 查找
-    for (const data of dataArray) {
-      const record = findDataByPoint(point, data, geometry);
-      if (record) {
-        const elementId = geometry.getElementId(record);
-        const element = geometry.elementsMap[elementId];
-        if (geometry.type === 'heatmap' || element.visible) {
-          // Heatmap 没有 Element
-          // 如果图形元素隐藏了，怎不再 tooltip 上展示相关数据
-          const items = getTooltipItems(record, geometry, title);
-          if (items.length) {
-            result.push(items);
-          }
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private findItemsFromView(view, point) {
+  private findItemsFromView(view: View, point: Point) {
     if (view.getOptions().tooltip === false) {
       // 如果 view 关闭了 tooltip
       return [];
     }
 
-    let result = [];
-    // 先从 view 本身查找
-    const geometries = view.geometries;
-    const { shared, title } = this.getTooltipCfg();
-    for (const geometry of geometries) {
-      if (geometry.visible && geometry.tooltipOption !== false) {
-        // geometry 可见同时未关闭 tooltip
-        const geometryType = geometry.type;
-        let tooltipItems;
-        if (['point', 'edge', 'polygon'].includes(geometryType)) {
-          // 始终通过图形拾取
-          tooltipItems = this.getTooltipItemsByHitShape(geometry, point, title);
-        } else if (['area', 'line', 'path', 'heatmap'].includes(geometryType)) {
-          // 如果是 'area', 'line', 'path'，始终通过数据查找方法查找 tooltip
-          tooltipItems = this.getTooltipItemsByFindData(geometry, point, title);
-        } else {
-          if (shared !== false) {
-            tooltipItems = this.getTooltipItemsByFindData(geometry, point, title);
-          } else {
-            tooltipItems = this.getTooltipItemsByHitShape(geometry, point, title);
-          }
-        }
-        if (tooltipItems.length) {
-          // geometry 有可能会有多个 item，因为用户可以设置 geometry.tooltip('x*y*z')
-          result.push(tooltipItems);
-        }
-      }
-    }
-
+    const tooltipCfg = this.getTooltipCfg();
+    let result = findItemsFromView(view, point, tooltipCfg);
     // 递归查找，并合并结果
     for (const childView of view.views) {
       result = result.concat(this.findItemsFromView(childView, point));
@@ -759,5 +705,16 @@ export default class Tooltip extends Controller<TooltipOption> {
     }
 
     return find(view.views, (childView) => this.getViewWithGeometry(childView));
+  }
+
+  /**
+   * 根据用户配置的 items 配置，来进行用户自定义的处理，并返回最终的 items
+   * 默认不做任何处理
+   */
+  private getItemsAfterProcess(originalItems: TooltipItem[]): TooltipItem[] {
+    const { customItems } = this.getTooltipCfg();
+    const fn = customItems ? customItems : (v) => v;
+
+    return fn(originalItems);
   }
 }
